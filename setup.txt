@@ -1,0 +1,201 @@
+================================================================================
+LAKSHMI GARMENTS & JEWELRY — SETUP.TXT
+One-time commands that build app/frontend/ and app/backend/ with every file
+placed at the correct path, straight from frontend.txt and backend.txt.
+Runs on Windows, macOS and Linux. Requirements: Python 3.8+ and Node 18+.
+================================================================================
+
+HOW THIS WORKS
+- You place frontend.txt at   app/frontend.txt
+- You place backend.txt  at   app/backend.txt
+- You place setup.py     at   app/setup.py      (full code is in STEP 1 below)
+- You run ONE command:   python setup.py
+- Result:
+    app/frontend/  → complete Vite + React app. The three Vite root files
+                     (package.json, vite.config.js, index.html — required by
+                     Vite to run) sit at app/frontend/, and ALL app code sits
+                     inside app/frontend/src/ and nowhere else.
+    app/backend/    → complete FastAPI project. Only requirements.txt,
+                     schema.sql, .env at the root (required to run) and all
+                     Python code inside app/backend/app/.
+  NOTE ON "npm create vite": do NOT run it. setup.py already builds the full
+  Vite + React project from frontend.txt (same end result, error-free, and no
+  extra boilerplate files created anywhere). `npm install && npm run dev`
+  afterwards gives you the running Vite React app.
+
+--------------------------------------------------------------------------------
+STEP 0 — create the folder (run in your terminal / PowerShell)
+--------------------------------------------------------------------------------
+  mkdir app
+  cd app
+
+Now place these 3 files inside app/:
+  frontend.txt   (copy of src/frontend.txt from the workspace)
+  backend.txt    (copy of src/backend.txt from the workspace)
+  setup.py       (save the code from STEP 1 below as app/setup.py)
+
+--------------------------------------------------------------------------------
+STEP 1 — save exactly this code as app/setup.py
+--------------------------------------------------------------------------------
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def is_separator(line):
+    s = line.strip()
+    return len(s) >= 20 and set(s) == {"-"}
+
+
+def finalize(buf):
+    # drop trailing separator/blank lines, then leading separator lines
+    while buf and (buf[-1].strip() == "" or is_separator(buf[-1])):
+        buf.pop()
+    while buf and is_separator(buf[0]):
+        buf.pop(0)
+    text = "\n".join(buf).rstrip() + "\n"
+    if text.strip() == "(empty file)":
+        return ""
+    return text
+
+
+def write(folder, rel, content):
+    # paths inside the txt start with "frontend/" or "backend/" — strip it
+    prefix = folder + "/"
+    if rel.startswith(prefix):
+        rel = rel[len(prefix):]
+    full = os.path.join(HERE, folder, rel)
+    os.makedirs(os.path.dirname(full) or HERE, exist_ok=True)
+    with open(full, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+    print("  created  " + os.path.join(folder, rel).replace("\\", "/"))
+    return 1
+
+
+def extract(txt_name, folder):
+    path = os.path.join(HERE, txt_name)
+    if not os.path.exists(path):
+        print("ERROR: " + txt_name + " not found next to setup.py")
+        sys.exit(1)
+    with open(path, encoding="utf-8-sig") as f:
+        lines = f.read().splitlines()
+    current, buf, count = None, [], 0
+    for line in lines:
+        if line.startswith("FILE: "):
+            if current is not None:
+                count += write(folder, current, finalize(buf))
+            current, buf = line[6:].strip(), []
+        elif line.strip() == "END OF FILES":
+            if current is not None:
+                count += write(folder, current, finalize(buf))
+            current, buf = None, []
+        elif current is not None:
+            buf.append(line)
+    if current is not None:
+        count += write(folder, current, finalize(buf))
+    return count
+
+
+if __name__ == "__main__":
+    print("Extracting frontend...")
+    n1 = extract("frontend.txt", "frontend")
+    print("Extracting backend...")
+    n2 = extract("backend.txt", "backend")
+    print("")
+    print("Done: " + str(n1) + " files -> app/frontend, "
+          + str(n2) + " files -> app/backend")
+    print("Next: 1) fill app/frontend/.env and app/backend/.env")
+    print("      2) run app/backend/schema.sql in Supabase SQL Editor")
+    print("      3) start backend:  cd backend && python -m venv venv")
+    print("         (Windows: venv\\Scripts\\activate | macOS/Linux: source venv/bin/activate)")
+    print("         pip install -r requirements.txt")
+    print("         uvicorn app.main:app --reload --port 8000")
+    print("      4) start frontend: cd ../frontend && npm install && npm run dev")
+
+--------------------------------------------------------------------------------
+STEP 2 — run it (inside the app/ folder)
+--------------------------------------------------------------------------------
+  python setup.py
+
+Expected result (runs without errors):
+  Extracting frontend...
+    created  frontend/.env
+    created  frontend/package.json
+    created  frontend/vite.config.js
+    created  frontend/index.html
+    created  frontend/src/main.jsx
+    ... (all files listed one by one)
+  Extracting backend...
+    created  backend/.env
+    created  backend/requirements.txt
+    created  backend/schema.sql
+    created  backend/app/main.py
+    ... (all files listed one by one)
+  Done: 19 files -> app/frontend, 14 files -> app/backend
+
+--------------------------------------------------------------------------------
+STEP 3 — fill the two .env files (REQUIRED, or nothing will connect)
+--------------------------------------------------------------------------------
+  app/frontend/.env → VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY,
+                      VITE_API_BASE_URL (http://localhost:8000)
+  app/backend/.env  → SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+                      ADMIN_USER_IDS, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
+                      FRONTEND_URL (http://localhost:5173)
+  (exact values and where to find each one: architecture.txt section 5 & 6)
+
+--------------------------------------------------------------------------------
+STEP 4 — create the database tables (REQUIRED, one time)
+--------------------------------------------------------------------------------
+Supabase Dashboard → SQL Editor → New query → paste the full contents of
+app/backend/schema.sql → Run. You should see "Success. No rows returned".
+
+--------------------------------------------------------------------------------
+STEP 5 — start the backend
+--------------------------------------------------------------------------------
+  cd backend
+  python -m venv venv
+  source venv/bin/activate
+      (Windows PowerShell instead of the line above:  venv\Scripts\activate)
+  pip install -r requirements.txt
+  uvicorn app.main:app --reload --port 8000
+  → keep this terminal open; check http://localhost:8000/docs shows the API
+
+--------------------------------------------------------------------------------
+STEP 6 — start the frontend (NEW terminal, from the app/ folder)
+--------------------------------------------------------------------------------
+  cd frontend
+  npm install
+  npm run dev
+  → open http://localhost:5173
+
+--------------------------------------------------------------------------------
+STEP 7 — make yourself admin (REQUIRED for the admin pages)
+--------------------------------------------------------------------------------
+Register in the app (email form or "Continue with Google" — both work).
+Supabase Dashboard → Authentication → Users → click your user → copy the UUID.
+Edit app/backend/.env:
+  ADMIN_USER_IDS=paste-uuid-here              (2-3 admins: uuid1,uuid2)
+Stop uvicorn (Ctrl+C) and restart it (env changes need a restart):
+  uvicorn app.main:app --reload --port 8000
+Log out and log back in on the frontend → the Admin menu appears.
+Enable Google login too (one time): architecture.txt section 6B.
+
+--------------------------------------------------------------------------------
+CHECK — list everything that was created (your requested find command)
+--------------------------------------------------------------------------------
+  find app -type d \( -name "venv" -o -name "node_modules" -o -name "__pycache__" -o -name ".git" \) -prune -o -type f -print
+
+TROUBLESHOOTING
+- "frontend.txt not found"        → run python setup.py from inside the app/
+                                     folder, next to both .txt files
+- npm run dev fails               → Node version < 18; upgrade Node
+- uvicorn: command not found      → you forgot to activate venv, or run:
+                                     python -m uvicorn app.main:app --port 8000
+- CORS error in the browser       → FRONTEND_URL in backend/.env must exactly
+                                     match the frontend URL (incl. port)
+- 401 on every request            → VITE_SUPABASE_URL / anon key wrong, or
+                                     Supabase email confirmation is on and you
+                                     haven't confirmed your account
+- "provider is not enabled"       → Google provider not enabled in Supabase
+                                     (architecture.txt section 6B, step 2)

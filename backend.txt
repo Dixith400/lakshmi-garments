@@ -1,0 +1,571 @@
+================================================================================
+LAKSHMI GARMENTS & JEWELRY — FULL BACKEND CODE
+Stack: Python FastAPI + Supabase (Postgres + Auth) + Razorpay (test mode)
+================================================================================
+
+FEATURES BUILT IN THIS BACKEND
+1. Auth check on every request (verifies the Supabase JWT sent by the frontend)
+2. Admin gate: only user UUIDs listed in .env ADMIN_USER_IDS can add/edit/delete
+   products, change order status, and edit shop details (2-3 admins supported)
+3. Products API: create, list, get, update price & stock after creation, delete
+4. Orders API: place order (Cash on Delivery or Razorpay), stock is checked and
+   decreased, sold_count is increased and returned to the user after ordering
+5. Razorpay: creates the Razorpay order + verifies the payment signature
+6. Shop settings API: default address/phone/logo now, admin can update later
+7. Google sign-in needs NO backend change: the API verifies any Supabase JWT,
+   so email/password users and Google users are treated identically
+
+--------------------------------------------------------------------------------
+FILE TREE (create folders exactly like this)
+--------------------------------------------------------------------------------
+backend/
+├── .env
+├── requirements.txt
+├── schema.sql
+└── app/
+    ├── __init__.py
+    ├── main.py
+    ├── config.py
+    ├── db.py
+    ├── deps.py
+    └── routers/
+        ├── __init__.py
+        ├── auth.py
+        ├── products.py
+        ├── orders.py
+        ├── payments.py
+        └── settings.py
+
+--------------------------------------------------------------------------------
+FILE: backend/.env
+--------------------------------------------------------------------------------
+# .env  (NEVER commit this file to git — rotate any key you pasted in chats)
+
+# --- Supabase → your project → Settings → API ---
+SUPABASE_URL=https://xotszjnrbvjbyhtkofxe.supabase.co
+SUPABASE_ANON_KEY=PASTE_YOUR_SUPABASE_ANON_KEY_HERE
+SUPABASE_SERVICE_ROLE_KEY=PASTE_YOUR_SUPABASE_SERVICE_ROLE_KEY_HERE
+
+# --- Admins: paste user UUIDs (comma separated) AFTER they sign up in the app.
+# Find each UUID: Supabase Dashboard → Authentication → Users → click the user.
+# Example for 2 admins:
+# ADMIN_USER_IDS=11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222
+ADMIN_USER_IDS=
+
+# --- Razorpay (TEST keys for now) ---
+# How to get them: https://dashboard.razorpay.com → log in →
+#   Settings (gear icon) → API Keys → "Generate Test Key".
+# You already have the Key ID: rzp_test_TErXfI1RWNyKEK
+# Paste the Key Secret shown next to it below:
+RAZORPAY_KEY_ID=rzp_test_TErXfI1RWNyKEK
+RAZORPAY_KEY_SECRET=PASTE_YOUR_RAZORPAY_KEY_SECRET_HERE
+
+# --- Frontend origin allowed to call this API (CORS) ---
+FRONTEND_URL=http://localhost:5173
+
+--------------------------------------------------------------------------------
+FILE: backend/requirements.txt
+--------------------------------------------------------------------------------
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+supabase==2.7.3
+razorpay==1.4.2
+python-dotenv==1.0.1
+pydantic==2.9.2
+
+--------------------------------------------------------------------------------
+(Run once in: Supabase Dashboard → SQL Editor → paste → Run.
+ Creates the tables. All data access happens through FastAPI with the
+ service role key, so we enable RLS and add no policies = Supabase's direct
+ API stays locked; only the backend can touch data.)
+--------------------------------------------------------------------------------
+FILE: backend/schema.sql
+--------------------------------------------------------------------------------
+create table if not exists products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text default '',
+  category text default 'garments',
+  price numeric not null,
+  stock integer not null default 0,
+  sizes text[] default '{}',
+  colors text[] default '{}',
+  sold_count integer not null default 0,
+  image_url text default '',
+  created_at timestamptz default now()
+);
+
+create table if not exists orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  user_email text default '',
+  total numeric not null,
+  payment_method text not null,          -- 'cod' | 'razorpay'
+  payment_status text not null,          -- 'cod_pending' | 'unpaid' | 'paid' | 'failed'
+  status text not null default 'pending',-- pending | confirmed | delivered | cancelled
+  razorpay_order_id text,
+  created_at timestamptz default now()
+);
+
+create table if not exists order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid references orders(id) on delete cascade,
+  product_id uuid references products(id),
+  product_name text,
+  size text,
+  color text,
+  quantity integer not null,
+  unit_price numeric not null
+);
+
+create table if not exists shop_settings (
+  id int primary key default 1,
+  shop_name text default 'Lakshmi Garments and Jewelry',
+  address text default 'Main Bazaar Road, Your City',
+  phone text default '+91 90000 00000',
+  logo_url text default 'https://media.base44.com/images/public/6aae82cb01188ac2783c82e6/ac99a0ac8_generated_image.png'
+);
+
+insert into shop_settings (id) values (1) on conflict (id) do nothing;
+
+alter table products enable row level security;
+alter table orders enable row level security;
+alter table order_items enable row level security;
+alter table shop_settings enable row level security;
+
+--------------------------------------------------------------------------------
+FILE: backend/app/config.py
+--------------------------------------------------------------------------------
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# Comma-separated admin UUIDs from .env → e.g. ADMIN_USER_IDS=uuid1,uuid2
+ADMIN_USER_IDS = {
+    u.strip() for u in os.getenv("ADMIN_USER_IDS", "").split(",") if u.strip()
+}
+
+--------------------------------------------------------------------------------
+FILE: backend/app/db.py
+--------------------------------------------------------------------------------
+from supabase import create_client
+from app.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, \
+    RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
+import razorpay
+
+# Service-role client: bypasses RLS. Only the backend may use it.
+supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Razorpay client (test mode keys)
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+--------------------------------------------------------------------------------
+FILE: backend/app/deps.py
+--------------------------------------------------------------------------------
+from fastapi import Header, HTTPException, Depends
+from app.db import supabase
+from app.config import ADMIN_USER_IDS
+
+
+async def get_current_user(authorization: str = Header(...)) -> dict:
+    """Verifies the Supabase JWT the frontend sends as 'Authorization: Bearer …'."""
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        resp = supabase.auth.get_user(token)
+        return resp.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired session. Please log in again.")
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Only UUIDs listed in .env ADMIN_USER_IDS pass."""
+    if user.id not in ADMIN_USER_IDS:
+        raise HTTPException(status_code=403, detail="Admins only.")
+    return user
+
+--------------------------------------------------------------------------------
+FILE: backend/app/main.py
+--------------------------------------------------------------------------------
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import FRONTEND_URL
+from app.routers import auth, products, orders, payments, settings
+
+app = FastAPI(title="Lakshmi Garments & Jewelry API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_URL],     # your frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(products.router)
+app.include_router(orders.router)
+app.include_router(payments.router)
+app.include_router(settings.router)
+
+
+@app.get("/api/health")
+def health():
+    return {"ok": True}
+
+--------------------------------------------------------------------------------
+FILE: backend/app/routers/__init__.py
+--------------------------------------------------------------------------------
+(empty file)
+
+--------------------------------------------------------------------------------
+FILE: backend/app/routers/auth.py
+--------------------------------------------------------------------------------
+from fastapi import APIRouter, Depends
+from app.deps import get_current_user
+from app.config import ADMIN_USER_IDS
+
+router = APIRouter()
+
+
+@router.get("/api/me")
+def me(user: dict = Depends(get_current_user)):
+    """Frontend calls this to know if the logged-in user is an admin."""
+    return {"user_id": user.id, "email": user.email, "is_admin": user.id in ADMIN_USER_IDS}
+
+--------------------------------------------------------------------------------
+FILE: backend/app/routers/products.py
+--------------------------------------------------------------------------------
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional, List
+from app.db import supabase
+from app.deps import get_current_user, require_admin
+
+router = APIRouter()
+
+
+class ProductIn(BaseModel):
+    name: str
+    description: str = ""
+    category: str = "garments"
+    price: float
+    stock: int = 0
+    sizes: List[str] = []
+    colors: List[str] = []
+    image_url: str = ""
+
+
+class ProductPatch(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    price: Optional[float] = None
+    stock: Optional[int] = None
+    sizes: Optional[List[str]] = None
+    colors: Optional[List[str]] = None
+    image_url: Optional[str] = None
+
+
+@router.get("/api/products")
+def list_products(user: dict = Depends(get_current_user)):
+    return supabase.table("products").select("*").order("created_at", desc=True).execute().data
+
+
+@router.get("/api/products/{product_id}")
+def get_product(product_id: str, user: dict = Depends(get_current_user)):
+    rows = supabase.table("products").select("*").eq("id", product_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Product not found")
+    return rows[0]
+
+
+@router.post("/api/products")
+def create_product(p: ProductIn, admin: dict = Depends(require_admin)):
+    return supabase.table("products").insert(p.model_dump()).execute().data[0]
+
+
+@router.patch("/api/products/{product_id}")
+def update_product(product_id: str, p: ProductPatch, admin: dict = Depends(require_admin)):
+    """Admin can change price and stock (and anything else) after creation."""
+    updates = {k: v for k, v in p.model_dump().items() if v is not None}
+    return supabase.table("products").update(updates).eq("id", product_id).execute().data[0]
+
+
+@router.delete("/api/products/{product_id}")
+def delete_product(product_id: str, admin: dict = Depends(require_admin)):
+    supabase.table("products").delete().eq("id", product_id).execute()
+    return {"deleted": True}
+
+--------------------------------------------------------------------------------
+FILE: backend/app/routers/orders.py
+--------------------------------------------------------------------------------
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase, razorpay_client
+from app.deps import get_current_user, require_admin
+from app.config import RAZORPAY_KEY_ID
+
+router = APIRouter()
+
+
+class OrderIn(BaseModel):
+    product_id: str
+    size: str
+    color: str
+    quantity: int = 1
+    payment_method: str  # 'cod' | 'razorpay'
+
+
+class StatusPatch(BaseModel):
+    status: str  # pending | confirmed | delivered | cancelled
+
+
+def _order_with_items(order_row: dict) -> dict:
+    items = supabase.table("order_items").select("*").eq("order_id", order_row["id"]).execute().data
+    return {**order_row, "items": items}
+
+
+@router.post("/api/orders")
+def place_order(o: OrderIn, user: dict = Depends(get_current_user)):
+    # 1. Load product and validate size/color/stock
+    rows = supabase.table("products").select("*").eq("id", o.product_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Product not found")
+    product = rows[0]
+
+    if o.size not in product["sizes"]:
+        raise HTTPException(400, f"Size '{o.size}' is not available for this product.")
+    if o.color not in product["colors"]:
+        raise HTTPException(400, f"Color '{o.color}' is not available for this product.")
+    if o.quantity < 1:
+        raise HTTPException(400, "Quantity must be at least 1.")
+    if product["stock"] < o.quantity:
+        raise HTTPException(400, f"Only {product['stock']} left in stock.")
+    if o.payment_method not in ("cod", "razorpay"):
+        raise HTTPException(400, "payment_method must be 'cod' or 'razorpay'.")
+
+    total = float(product["price"]) * o.quantity
+
+    # 2. Razorpay online payment → create the Razorpay order first
+    rzp_order_id = None
+    if o.payment_method == "razorpay":
+        rzp = razorpay_client.order.create({
+            "amount": int(total * 100),  # paise
+            "currency": "INR",
+            "receipt": f"order_{user.id[:8]}",
+        })
+        rzp_order_id = rzp["id"]
+
+    # 3. Save the order + item
+    order = supabase.table("orders").insert({
+        "user_id": user.id,
+        "user_email": user.email or "",
+        "total": total,
+        "payment_method": o.payment_method,
+        "payment_status": "cod_pending" if o.payment_method == "cod" else "unpaid",
+        "status": "confirmed" if o.payment_method == "cod" else "pending",
+        "razorpay_order_id": rzp_order_id,
+    }).execute().data[0]
+
+    supabase.table("order_items").insert({
+        "order_id": order["id"],
+        "product_id": product["id"],
+        "product_name": product["name"],
+        "size": o.size,
+        "color": o.color,
+        "quantity": o.quantity,
+        "unit_price": float(product["price"]),
+    }).execute()
+
+    # 4. COD: take stock & count the sale immediately.
+    #    Razorpay: stock is taken only AFTER payment is verified (payments.py).
+    if o.payment_method == "cod":
+        product = _apply_sale(product["id"], product["stock"], product["sold_count"], o.quantity)
+
+    result = {
+        "order": _order_with_items(order),
+        "product": {"id": product["id"], "name": product["name"],
+                     "sold_count": product["sold_count"], "stock": product["stock"]},
+    }
+    if o.payment_method == "razorpay":
+        result["razorpay"] = {
+            "key_id": RAZORPAY_KEY_ID,
+            "amount": int(total * 100),
+            "razorpay_order_id": rzp_order_id,
+        }
+    return result
+
+
+def _apply_sale(product_id: str, current_stock: int, current_sold: int, qty: int) -> dict:
+    """Decrease stock, increase sold_count. Returns the updated product row."""
+    return supabase.table("products").update({
+        "stock": current_stock - qty,
+        "sold_count": current_sold + qty,
+    }).eq("id", product_id).execute().data[0]
+
+
+@router.get("/api/orders")
+def my_orders(user: dict = Depends(get_current_user)):
+    rows = supabase.table("orders").select("*") \
+        .eq("user_id", user.id).order("created_at", desc=True).execute().data
+    return [_order_with_items(r) for r in rows]
+
+
+@router.get("/api/orders/all")
+def all_orders(admin: dict = Depends(require_admin)):
+    return [_order_with_items(r) for r in
+            supabase.table("orders").select("*").order("created_at", desc=True).execute().data]
+
+
+@router.patch("/api/orders/{order_id}/status")
+def update_status(order_id: str, body: StatusPatch, admin: dict = Depends(require_admin)):
+    if body.status not in ("pending", "confirmed", "delivered", "cancelled"):
+        raise HTTPException(400, "Invalid status.")
+    return supabase.table("orders") \
+        .update({"status": body.status}).eq("id", order_id).execute().data[0]
+
+--------------------------------------------------------------------------------
+FILE: backend/app/routers/payments.py
+--------------------------------------------------------------------------------
+import hmac
+import hashlib
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase
+from app.deps import get_current_user
+from app.config import RAZORPAY_KEY_SECRET
+
+router = APIRouter()
+
+
+class VerifyIn(BaseModel):
+    internal_order_id: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@router.post("/api/payments/verify")
+def verify_payment(v: VerifyIn, user: dict = Depends(get_current_user)):
+    # 1. Check the signature really came from Razorpay
+    expected = hmac.new(
+        RAZORPAY_KEY_SECRET.encode(),
+        f"{v.razorpay_order_id}|{v.razorpay_payment_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, v.razorpay_signature):
+        raise HTTPException(400, "Payment verification failed.")
+
+    # 2. Load our order and make sure it belongs to this user & matches
+    rows = supabase.table("orders").select("*").eq("id", v.internal_order_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Order not found")
+    order = rows[0]
+    if order["user_id"] != user.id:
+        raise HTTPException(403, "Not your order.")
+    if order["razorpay_order_id"] != v.razorpay_order_id:
+        raise HTTPException(400, "Razorpay order mismatch.")
+    if order["payment_status"] == "paid":
+        return _result(order)  # already verified (idempotent)
+
+    # 3. Mark paid, then take stock & count the sale
+    order = supabase.table("orders").update({
+        "payment_status": "paid",
+        "status": "confirmed",
+    }).eq("id", order["id"]).execute().data[0]
+
+    item = supabase.table("order_items").select("*") \
+        .eq("order_id", order["id"]).execute().data[0]
+
+    prod = supabase.table("products").select("*").eq("id", item["product_id"]).execute().data[0]
+    prod = supabase.table("products").update({
+        "stock": max(prod["stock"] - item["quantity"], 0),
+        "sold_count": prod["sold_count"] + item["quantity"],
+    }).eq("id", prod["id"]).execute().data[0]
+
+    return _result(order, prod)
+
+
+def _result(order: dict, prod: dict = None):
+    out = {"order": order}
+    if prod:
+        out["product"] = {"id": prod["id"], "name": prod["name"],
+                          "sold_count": prod["sold_count"], "stock": prod["stock"]}
+    return out
+
+--------------------------------------------------------------------------------
+FILE: backend/app/routers/settings.py
+--------------------------------------------------------------------------------
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from typing import Optional
+from app.db import supabase
+from app.deps import require_admin
+
+router = APIRouter()
+
+
+class SettingsIn(BaseModel):
+    shop_name: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    logo_url: Optional[str] = None
+
+
+@router.get("/api/settings")
+def get_settings():
+    rows = supabase.table("shop_settings").select("*").eq("id", 1).execute().data
+    return rows[0] if rows else {
+        "shop_name": "Lakshmi Garments and Jewelry",
+        "address": "Main Bazaar Road, Your City",
+        "phone": "+91 90000 00000",
+        "logo_url": "https://media.base44.com/images/public/6aae82cb01188ac2783c82e6/ac99a0ac8_generated_image.png",
+    }
+
+
+@router.put("/api/settings")
+def update_settings(s: SettingsIn, admin: dict = Depends(require_admin)):
+    updates = {k: v for k, v in s.model_dump().items() if v is not None}
+    supabase.table("shop_settings").update(updates).eq("id", 1).execute()
+    return get_settings()
+
+--------------------------------------------------------------------------------
+FILE: backend/app/__init__.py
+--------------------------------------------------------------------------------
+(empty file)
+
+--------------------------------------------------------------------------------
+END OF FILES
+--------------------------------------------------------------------------------
+SETUP & RUN COMMANDS (backend)
+--------------------------------------------------------------------------------
+# 1. Create the backend folder and copy the files per the tree above
+mkdir backend && cd backend
+
+# 2. Create a virtual environment
+python -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
+
+# 3. Install packages
+pip install -r requirements.txt
+
+# 4. Create .env (see ENV VARIABLES above) and fill ALL values
+
+# 5. Run schema.sql in Supabase Dashboard → SQL Editor (creates the 4 tables)
+
+# 6. Run the API
+uvicorn app.main:app --reload --port 8000
+#    → API docs: http://localhost:8000/docs
+
+# Your requested "list all files" command (skips venv/cache/git):
+find . -type d \( -name ".venv" -o -name "venv" -o -name "__pycache__" -o -name ".git" \) -prune -o -type f -print

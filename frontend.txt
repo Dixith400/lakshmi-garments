@@ -1,0 +1,783 @@
+================================================================================
+LAKSHMI GARMENTS & JEWELRY — FULL FRONTEND CODE
+Stack: React (plain JavaScript, NO TypeScript) + Vite + React Router + Supabase JS
+================================================================================
+
+FEATURES BUILT IN THIS FRONTEND
+1. Supabase email/password login & register (auth only — all data goes via FastAPI)
+2. Simple navigation: Home (shop + products), Product page, My Orders, Admin pages
+3. Product page: pick size (XL/M/S/custom), color, quantity, see stock & sold count
+4. Checkout: Cash on Delivery OR Razorpay (test mode) — after order, user sees
+   how many pieces of that product have been sold
+5. Admin-only pages: Add/Edit/Delete products (change price & stock after creating),
+   View all orders + update order status, Edit shop details (name, address, phone, logo)
+6. Admin access controlled by the BACKEND .env ADMIN_USER_IDS list (uuids)
+7. Google sign-in: "Continue with Google" button on Login & Register (Supabase OAuth)
+   — enable it once in Supabase (see architecture.txt section 6B)
+
+--------------------------------------------------------------------------------
+FILE TREE (create folders exactly like this)
+--------------------------------------------------------------------------------
+frontend/
+├── .env
+├── index.html
+├── package.json
+├── vite.config.js
+└── src/
+    ├── main.jsx
+    ├── App.jsx
+    ├── index.css
+    ├── lib/
+    │   ├── supabaseClient.js
+    │   ├── api.js
+    │   └── auth.jsx
+    ├── components/
+    │   └── Navbar.jsx
+    └── pages/
+        ├── Home.jsx
+        ├── Login.jsx
+        ├── Register.jsx
+        ├── ProductDetail.jsx
+        ├── MyOrders.jsx
+        └── admin/
+            ├── AdminProducts.jsx
+            ├── AdminOrders.jsx
+            └── ShopSettings.jsx
+
+--------------------------------------------------------------------------------
+(Only the anon key is used in the frontend — the service role key must NEVER
+ be pasted in the frontend, it is backend-only.)
+
+--------------------------------------------------------------------------------
+FILE: frontend/.env
+--------------------------------------------------------------------------------
+# .env  (paste your real keys — NEVER commit this file to git)
+VITE_SUPABASE_URL=https://xotszjnrbvjbyhtkofxe.supabase.co
+VITE_SUPABASE_ANON_KEY=PASTE_YOUR_SUPABASE_ANON_KEY_HERE
+# URL where your FastAPI backend runs
+VITE_API_BASE_URL=http://localhost:8000
+
+--------------------------------------------------------------------------------
+FILE: frontend/package.json
+--------------------------------------------------------------------------------
+{
+  "name": "lakshmi-garments-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
+  }
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/vite.config.js
+--------------------------------------------------------------------------------
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  server: { port: 5173 }
+});
+
+--------------------------------------------------------------------------------
+FILE: frontend/index.html
+--------------------------------------------------------------------------------
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lakshmi Garments & Jewelry</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/main.jsx
+--------------------------------------------------------------------------------
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App.jsx';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/lib/supabaseClient.js
+--------------------------------------------------------------------------------
+import { createClient } from '@supabase/supabase-js';
+
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/lib/api.js
+--------------------------------------------------------------------------------
+// Every data request goes to the FastAPI backend with the user's Supabase token.
+import { supabase } from './supabaseClient';
+
+const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+export async function api(path, { method = 'GET', body } = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers = { 'Content-Type': 'application/json' };
+  if (session) headers.Authorization = `Bearer ${session.access_token}`;
+
+  const res = await fetch(`${BASE}/api${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/lib/auth.jsx
+--------------------------------------------------------------------------------
+// Small auth context: current user + whether backend says they are admin.
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from './supabaseClient';
+import { api } from './api.js';
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Ask the backend who this user is (backend checks ADMIN_USER_IDS from its .env)
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    api('/me')
+      .then((me) => setIsAdmin(!!me.is_admin))
+      .catch(() => setIsAdmin(false));
+  }, [user]);
+
+  const logout = () => supabase.auth.signOut();
+
+  return (
+    <AuthContext.Provider value={{ user, isAdmin, loading, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/App.jsx
+--------------------------------------------------------------------------------
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './lib/auth.jsx';
+import Navbar from './components/Navbar.jsx';
+import Home from './pages/Home.jsx';
+import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
+import MyOrders from './pages/MyOrders.jsx';
+import AdminProducts from './pages/admin/AdminProducts.jsx';
+import AdminOrders from './pages/admin/AdminOrders.jsx';
+import ShopSettings from './pages/admin/ShopSettings.jsx';
+
+function Protected({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <p className="page">Loading…</p>;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function AdminOnly({ children }) {
+  const { isAdmin } = useAuth();
+  if (!isAdmin) return <p className="page">Admins only.</p>;
+  return children;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/product/:id" element={<Protected><ProductDetail /></Protected>} />
+        <Route path="/my-orders" element={<Protected><MyOrders /></Protected>} />
+        <Route path="/admin/products" element={<AdminOnly><AdminProducts /></AdminOnly>} />
+        <Route path="/admin/orders" element={<AdminOnly><AdminOrders /></AdminOnly>} />
+        <Route path="/admin/shop-details" element={<AdminOnly><ShopSettings /></AdminOnly>} />
+      </Routes>
+    </AuthProvider>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/components/Navbar.jsx
+--------------------------------------------------------------------------------
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../lib/auth.jsx';
+
+export default function Navbar() {
+  const { user, isAdmin, logout } = useAuth();
+  return (
+    <nav className="navbar">
+      <Link to="/" className="brand">Lakshmi Garments &amp; Jewelry</Link>
+      <div className="navlinks">
+        <Link to="/">Home</Link>
+        {user && <Link to="/my-orders">My Orders</Link>}
+        {isAdmin && <Link to="/admin/products">Admin · Products</Link>}
+        {isAdmin && <Link to="/admin/orders">Admin · Orders</Link>}
+        {isAdmin && <Link to="/admin/shop-details">Admin · Shop Details</Link>}
+        {user
+          ? <button className="btn-link" onClick={logout}>Logout</button>
+          : <Link to="/login">Login</Link>}
+      </div>
+    </nav>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/pages/Home.jsx
+--------------------------------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../lib/api.js';
+
+export default function Home() {
+  const [settings, setSettings] = useState(null);
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    api('/settings').then(setSettings).catch(() => {});
+    api('/products').then(setProducts).catch(() => {});
+  }, []);
+
+  return (
+    <div className="page">
+      {settings && (
+        <header className="shop-header">
+          <img src={settings.logo_url} alt="logo" className="logo" />
+          <div>
+            <h1>{settings.shop_name}</h1>
+            <p>{settings.address}</p>
+            <p>Phone: {settings.phone}</p>
+          </div>
+        </header>
+      )}
+      <h2>Products</h2>
+      <div className="grid">
+        {products.map((p) => (
+          <Link to={`/product/${p.id}`} key={p.id} className="card">
+            {p.image_url && <img src={p.image_url} alt={p.name} />}
+            <h3>{p.name}</h3>
+            <p className="price">₹{p.price}</p>
+            <p className="muted">
+              {p.stock > 0 ? `${p.stock} in stock` : 'Sold out'} · {p.sold_count} sold
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/pages/Login.jsx
+--------------------------------------------------------------------------------
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    else navigate('/');
+  };
+
+  // Google OAuth — after Google redirects back, the auth listener in
+  // lib/auth.jsx picks up the session automatically (no navigate needed).
+  const loginWithGoogle = async () => {
+    setError('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) setError(error.message);
+  };
+
+  return (
+    <div className="page">
+      <h2>Login</h2>
+      <form onSubmit={handleLogin} className="form">
+        <input type="email" placeholder="Email" value={email}
+               onChange={(e) => setEmail(e.target.value)} required />
+        <input type="password" placeholder="Password" value={password}
+               onChange={(e) => setPassword(e.target.value)} required />
+        {error && <p className="error">{error}</p>}
+        <button type="submit" className="btn">Login</button>
+        <button type="button" className="btn" onClick={loginWithGoogle}>
+          Continue with Google
+        </button>
+      </form>
+      <p>No account? <Link to="/register">Register</Link></p>
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/pages/Register.jsx
+--------------------------------------------------------------------------------
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+
+export default function Register() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) setError(error.message);
+    else navigate('/');
+  };
+
+  const registerWithGoogle = async () => {
+    setError('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) setError(error.message);
+  };
+
+  return (
+    <div className="page">
+      <h2>Register</h2>
+      <form onSubmit={handleRegister} className="form">
+        <input type="email" placeholder="Email" value={email}
+               onChange={(e) => setEmail(e.target.value)} required />
+        <input type="password" placeholder="Password (min 6 chars)" value={password}
+               onChange={(e) => setPassword(e.target.value)} required />
+        {error && <p className="error">{error}</p>}
+        <button type="submit" className="btn">Register</button>
+        <button type="button" className="btn" onClick={registerWithGoogle}>
+          Continue with Google
+        </button>
+      </form>
+      <p>Have an account? <Link to="/login">Login</Link></p>
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/pages/ProductDetail.jsx
+--------------------------------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { api } from '../lib/api.js';
+
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
+}
+
+export default function ProductDetail() {
+  const { id } = useParams();
+  const [product, setProduct] = useState(null);
+  const [size, setSize] = useState('');
+  const [color, setColor] = useState('');
+  const [qty, setQty] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { api(`/products/${id}`).then(setProduct).catch(() => {}); }, [id]);
+  if (!product) return <p className="page">Loading…</p>;
+
+  const placeOrder = async () => {
+    setError(''); setMsg(''); setBusy(true);
+    try {
+      if (!size || !color) { setError('Please pick a size and a color.'); setBusy(false); return; }
+
+      const res = await api('/orders', {
+        method: 'POST',
+        body: { product_id: product.id, size, color, quantity: qty, payment_method: paymentMethod }
+      });
+
+      if (paymentMethod === 'razorpay') {
+        const ok = await loadRazorpay();
+        if (!ok) throw new Error('Could not load Razorpay.');
+        const rzp = new window.Razorpay({
+          key: res.razorpay.key_id,
+          amount: res.razorpay.amount,          // in paise
+          currency: 'INR',
+          name: 'Lakshmi Garments & Jewelry',
+          order_id: res.razorpay.razorpay_order_id,
+          handler: async (r) => {
+            try {
+              const done = await api('/payments/verify', {
+                method: 'POST',
+                body: {
+                  internal_order_id: res.order.id,
+                  razorpay_order_id: r.razorpay_order_id,
+                  razorpay_payment_id: r.razorpay_payment_id,
+                  razorpay_signature: r.razorpay_signature
+                }
+              });
+              setMsg(`Payment successful! ${done.product.sold_count} pieces of "${product.name}" sold so far.`);
+            } catch (e) { setError(e.message); }
+          }
+        });
+        rzp.open();
+      } else {
+        setMsg(`Order placed (Cash on Delivery)! ${res.product.sold_count} pieces of "${product.name}" sold so far.`);
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="page">
+      <h2>{product.name}</h2>
+      {product.image_url && <img src={product.image_url} alt={product.name} className="hero-img" />}
+      <p>{product.description}</p>
+      <p className="price">₹{product.price}</p>
+      <p className="muted">{product.stock} in stock · {product.sold_count} sold</p>
+
+      <div className="form">
+        <label>Size</label>
+        <div className="chips">
+          {product.sizes.map((s) => (
+            <button key={s} className={s === size ? 'chip active' : 'chip'} onClick={() => setSize(s)}>{s}</button>
+          ))}
+        </div>
+        <label>Color</label>
+        <div className="chips">
+          {product.colors.map((c) => (
+            <button key={c} className={c === color ? 'chip active' : 'chip'} onClick={() => setColor(c)}>{c}</button>
+          ))}
+        </div>
+        <label>Quantity</label>
+        <input type="number" min="1" max={product.stock} value={qty}
+               onChange={(e) => setQty(Number(e.target.value))} />
+        <label>Payment</label>
+        <div className="chips">
+          <button className={paymentMethod === 'cod' ? 'chip active' : 'chip'}
+                  onClick={() => setPaymentMethod('cod')}>Cash on Delivery</button>
+          <button className={paymentMethod === 'razorpay' ? 'chip active' : 'chip'}
+                  onClick={() => setPaymentMethod('razorpay')}>Razorpay (Online)</button>
+        </div>
+        <button className="btn" onClick={placeOrder} disabled={busy || product.stock === 0}>
+          {busy ? 'Placing…' : product.stock === 0 ? 'Sold out' : 'Place Order'}
+        </button>
+        {msg && <p className="success">{msg}</p>}
+        {error && <p className="error">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/pages/MyOrders.jsx
+--------------------------------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import { api } from '../lib/api.js';
+
+export default function MyOrders() {
+  const [orders, setOrders] = useState([]);
+  useEffect(() => { api('/orders').then(setOrders).catch(() => {}); }, []);
+
+  return (
+    <div className="page">
+      <h2>My Orders</h2>
+      {orders.map((o) => (
+        <div className="card" key={o.id}>
+          <p><b>{new Date(o.created_at).toLocaleString()}</b></p>
+          <p>Total: ₹{o.total} · {o.payment_method === 'cod' ? 'Cash on Delivery' : 'Online'}</p>
+          <p>Status: {o.status} · Payment: {o.payment_status}</p>
+          <ul>
+            {(o.items || []).map((it, i) => (
+              <li key={i}>{it.product_name} — {it.size} / {it.color} × {it.quantity} @ ₹{it.unit_price}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/pages/admin/AdminProducts.jsx
+--------------------------------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+
+const EMPTY = {
+  name: '', description: '', category: 'garments', price: 0, stock: 0,
+  sizes: 'XL, M, S', colors: 'Red, Blue', image_url: ''
+};
+
+export default function AdminProducts() {
+  const [products, setProducts] = useState([]);
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState(null);
+  const [msg, setMsg] = useState('');
+
+  const load = () => api('/products').then(setProducts).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const save = async () => {
+    const body = {
+      ...form,
+      price: Number(form.price),
+      stock: Number(form.stock),
+      sizes: form.sizes.split(',').map((s) => s.trim()).filter(Boolean),
+      colors: form.colors.split(',').map((s) => s.trim()).filter(Boolean)
+    };
+    if (editingId) {
+      await api(`/products/${editingId}`, { method: 'PATCH', body });
+      setMsg('Product updated (price & stock saved).');
+    } else {
+      await api('/products', { method: 'POST', body });
+      setMsg('Product added.');
+    }
+    setForm(EMPTY); setEditingId(null); load();
+  };
+
+  const edit = (p) => {
+    setEditingId(p.id);
+    setForm({ ...p, sizes: p.sizes.join(', '), colors: p.colors.join(', ') });
+  };
+
+  const remove = async (id) => {
+    await api(`/products/${id}`, { method: 'DELETE' }); load();
+  };
+
+  return (
+    <div className="page">
+      <h2>{editingId ? 'Edit Product' : 'Add Product'}</h2>
+      <div className="form">
+        <input placeholder="Name" value={form.name} onChange={set('name')} />
+        <textarea placeholder="Description" value={form.description} onChange={set('description')} />
+        <select value={form.category} onChange={set('category')}>
+          <option value="garments">Garments</option>
+          <option value="jewelry">Jewelry</option>
+        </select>
+        <input type="number" placeholder="Price ₹" value={form.price} onChange={set('price')} />
+        <input type="number" placeholder="Stock" value={form.stock} onChange={set('stock')} />
+        <input placeholder="Sizes (comma separated: XL, M, S, custom…)" value={form.sizes} onChange={set('sizes')} />
+        <input placeholder="Colors (comma separated)" value={form.colors} onChange={set('colors')} />
+        <input placeholder="Image URL (optional)" value={form.image_url} onChange={set('image_url')} />
+        <button className="btn" onClick={save}>{editingId ? 'Update' : 'Add'} Product</button>
+        {editingId && <button className="btn-link" onClick={() => { setEditingId(null); setForm(EMPTY); }}>Cancel edit</button>}
+        {msg && <p className="success">{msg}</p>}
+      </div>
+
+      <h2>All Products</h2>
+      {products.map((p) => (
+        <div className="card" key={p.id}>
+          <h3>{p.name} — ₹{p.price} · stock {p.stock} · {p.sold_count} sold</h3>
+          <p className="muted">{p.sizes.join(' / ')} · {p.colors.join(' / ')}</p>
+          <button className="btn-link" onClick={() => edit(p)}>Edit</button>
+          <button className="btn-link danger" onClick={() => remove(p.id)}>Delete</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/pages/admin/AdminOrders.jsx
+--------------------------------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+
+export default function AdminOrders() {
+  const [orders, setOrders] = useState([]);
+  const load = () => api('/orders/all').then(setOrders).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const setStatus = async (id, status) => {
+    await api(`/orders/${id}/status`, { method: 'PATCH', body: { status } });
+    load();
+  };
+
+  return (
+    <div className="page">
+      <h2>All Orders</h2>
+      {orders.map((o) => (
+        <div className="card" key={o.id}>
+          <p><b>Order {o.id.slice(0, 8)}</b> · ₹{o.total} · {o.payment_method} · payment: {o.payment_status}</p>
+          <p>Status: {o.status} · Customer: {o.user_email || o.user_id}</p>
+          <ul>
+            {(o.items || []).map((it, i) => (
+              <li key={i}>{it.product_name} — {it.size} / {it.color} × {it.quantity}</li>
+            ))}
+          </ul>
+          <button className="btn-link" onClick={() => setStatus(o.id, 'confirmed')}>Confirm</button>
+          <button className="btn-link" onClick={() => setStatus(o.id, 'delivered')}>Delivered</button>
+          <button className="btn-link danger" onClick={() => setStatus(o.id, 'cancelled')}>Cancel</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/pages/admin/ShopSettings.jsx
+--------------------------------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+
+export default function ShopSettings() {
+  const [form, setForm] = useState({ shop_name: '', address: '', phone: '', logo_url: '' });
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => { api('/settings').then(setForm).catch(() => {}); }, []);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const save = async () => {
+    await api('/settings', { method: 'PUT', body: form });
+    setMsg('Shop details saved.');
+  };
+
+  return (
+    <div className="page">
+      <h2>Shop Details</h2>
+      <div className="form">
+        <input placeholder="Shop name" value={form.shop_name} onChange={set('shop_name')} />
+        <textarea placeholder="Address" value={form.address} onChange={set('address')} />
+        <input placeholder="Phone" value={form.phone} onChange={set('phone')} />
+        <input placeholder="Logo URL" value={form.logo_url} onChange={set('logo_url')} />
+        <button className="btn" onClick={save}>Save</button>
+        {msg && <p className="success">{msg}</p>}
+      </div>
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: frontend/src/index.css
+--------------------------------------------------------------------------------
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #faf7f5; color: #2b2b2b; }
+.navbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+  padding: 14px 20px; background: #5c1a1b; color: #fff; }
+.navbar a, .navbar .btn-link { color: #f5d98b; text-decoration: none; background: none; border: none;
+  font-size: 15px; cursor: pointer; }
+.brand { font-weight: 700; font-size: 17px; color: #fff !important; }
+.navlinks { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.page { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+.shop-header { display: flex; gap: 20px; align-items: center; padding: 20px; background: #fff;
+  border: 1px solid #eee; border-radius: 12px; margin-bottom: 24px; }
+.logo { width: 90px; height: 90px; object-fit: contain; border-radius: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; margin-top: 16px; }
+.card { display: block; background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 14px;
+  text-decoration: none; color: inherit; margin-bottom: 12px; }
+.card img { width: 100%; height: 160px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
+.hero-img { max-width: 100%; max-height: 340px; border-radius: 12px; margin: 12px 0; }
+.price { font-size: 20px; font-weight: 700; color: #5c1a1b; }
+.muted { color: #888; font-size: 14px; }
+.form { display: flex; flex-direction: column; gap: 10px; max-width: 480px; margin: 16px 0; }
+.form input, .form textarea, .form select { padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; }
+.btn { background: #5c1a1b; color: #fff; padding: 10px 18px; border: none; border-radius: 8px;
+  font-size: 15px; cursor: pointer; }
+.btn:disabled { background: #aaa; }
+.btn-link { text-decoration: underline; color: #5c1a1b; background: none; border: none; cursor: pointer; font-size: 14px; }
+.btn-link.danger { color: #b00; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 6px 12px; border: 1px solid #ccc; border-radius: 999px; background: #fff; cursor: pointer; }
+.chip.active { background: #5c1a1b; color: #fff; border-color: #5c1a1b; }
+.error { color: #b00; } .success { color: #070; }
+label { font-size: 13px; color: #666; }
+
+--------------------------------------------------------------------------------
+END OF FILES
+--------------------------------------------------------------------------------
+SETUP & RUN COMMANDS (frontend)
+--------------------------------------------------------------------------------
+# 1. Create the project (or just copy the files into the tree above)
+npm create vite@latest frontend -- --template react
+cd frontend
+
+# 2. Install only the packages needed
+npm install @supabase/supabase-js react-router-dom
+
+# 3. Create .env (see ENV VARIABLES above) and fill in your keys
+
+# 4. Run
+npm run dev            # → http://localhost:5173
+
+# 5. Production build
+npm run build && npm run preview
+
+# List every file (your requested command):
+find . -type d \( -name "node_modules" -o -name ".git" -o -name "dist" \) -prune -o -type f -print
