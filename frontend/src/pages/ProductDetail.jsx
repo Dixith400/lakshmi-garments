@@ -16,13 +16,14 @@ function loadRazorpay() {
 export default function ProductDetail() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
+  const [images, setImages] = useState([]);
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
   const [qty, setQty] = useState(1);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [images, setImages] = useState([]);
+  
 
   useEffect(() => {
     api(`/products/${id}`).then(setProduct).catch(() => {});
