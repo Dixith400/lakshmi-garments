@@ -1,0 +1,1181 @@
+=== FILE: ./frontend/vite.config.js ===
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  server: { port: 5173 }
+});
+
+
+=== FILE: ./frontend/src/components/Navbar.jsx ===
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../lib/auth.jsx';
+
+export default function Navbar() {
+  const { user, isAdmin, logout } = useAuth();
+  return (
+    <nav className="navbar">
+      <Link to="/" className="brand">Lakshmi Garments &amp; Jewelry</Link>
+      <div className="navlinks">
+        <Link to="/">Home</Link>
+        {user && <Link to="/my-orders">My Orders</Link>}
+        {isAdmin && <Link to="/admin/products">Admin · Products</Link>}
+        {isAdmin && <Link to="/admin/orders">Admin · Orders</Link>}
+        {isAdmin && <Link to="/admin/shop-details">Admin · Shop Details</Link>}
+        {user
+          ? <button className="btn-link" onClick={logout}>Logout</button>
+          : <Link to="/login">Login</Link>}
+      </div>
+    </nav>
+  );
+}
+
+
+=== FILE: ./frontend/src/main.jsx ===
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App.jsx';
+import './index.css';
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter 
+      future={{ 
+        v7_relativeSplatPath: true, 
+        v7_startTransition: true // Fixes the new warning
+      }}
+    >
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
+
+
+=== FILE: ./frontend/src/App.jsx ===
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './lib/auth.jsx';
+import Navbar from './components/Navbar.jsx';
+import Home from './pages/Home.jsx';
+import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
+import MyOrders from './pages/MyOrders.jsx';
+import AdminProducts from './pages/admin/AdminProducts.jsx';
+import AdminOrders from './pages/admin/AdminOrders.jsx';
+import ShopSettings from './pages/admin/ShopSettings.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
+
+function Protected({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <p className="page">Loading…</p>;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function AdminOnly({ children }) {
+  const { isAdmin } = useAuth();
+  if (!isAdmin) return <p className="page">Admins only.</p>;
+  return children;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/product/:id" element={<Protected><ProductDetail /></Protected>} />
+        <Route path="/my-orders" element={<Protected><MyOrders /></Protected>} />
+        <Route path="/admin/products" element={<AdminOnly><AdminProducts /></AdminOnly>} />
+        <Route path="/admin/orders" element={<AdminOnly><AdminOrders /></AdminOnly>} />
+        <Route path="/admin/shop-details" element={<AdminOnly><ShopSettings /></AdminOnly>} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+      </Routes>
+    </AuthProvider>
+  );
+}
+
+
+=== FILE: ./frontend/src/lib/auth.jsx ===
+// Small auth context: current user + whether backend says they are admin.
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from './supabaseClient';
+import { api } from './api.js';
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Ask the backend who this user is (backend checks ADMIN_USER_IDS from its .env)
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    api('/me')
+      .then((me) => setIsAdmin(!!me.is_admin))
+      .catch(() => setIsAdmin(false));
+  }, [user]);
+
+  const logout = () => supabase.auth.signOut();
+
+  return (
+    <AuthContext.Provider value={{ user, isAdmin, loading, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
+
+
+=== FILE: ./frontend/src/lib/supabaseClient.js ===
+import { createClient } from '@supabase/supabase-js';
+
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
+
+=== FILE: ./frontend/src/lib/api.js ===
+// Every data request goes to the FastAPI backend with the user's Supabase token.
+import { supabase } from './supabaseClient';
+
+const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+export async function api(path, { method = 'GET', body } = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers = { 'Content-Type': 'application/json' };
+  if (session) headers.Authorization = `Bearer ${session.access_token}`;
+
+  const res = await fetch(`${BASE}/api${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+
+=== FILE: ./frontend/src/pages/ProductDetail.jsx ===
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { api } from '../lib/api.js';
+
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
+}
+
+export default function ProductDetail() {
+  const { id } = useParams();
+  const [product, setProduct] = useState(null);
+  const [size, setSize] = useState('');
+  const [color, setColor] = useState('');
+  const [qty, setQty] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { api(`/products/${id}`).then(setProduct).catch(() => {}); }, [id]);
+  if (!product) return <p className="page">Loading…</p>;
+
+  const placeOrder = async () => {
+    setError(''); setMsg(''); setBusy(true);
+    try {
+      if (!size || !color) { setError('Please pick a size and a color.'); setBusy(false); return; }
+
+      const res = await api('/orders', {
+        method: 'POST',
+        body: { product_id: product.id, size, color, quantity: qty, payment_method: paymentMethod }
+      });
+
+      if (paymentMethod === 'razorpay') {
+        const ok = await loadRazorpay();
+        if (!ok) throw new Error('Could not load Razorpay.');
+        const rzp = new window.Razorpay({
+          key: res.razorpay.key_id,
+          amount: res.razorpay.amount,          // in paise
+          currency: 'INR',
+          name: 'Lakshmi Garments & Jewelry',
+          order_id: res.razorpay.razorpay_order_id,
+          handler: async (r) => {
+            try {
+              const done = await api('/payments/verify', {
+                method: 'POST',
+                body: {
+                  internal_order_id: res.order.id,
+                  razorpay_order_id: r.razorpay_order_id,
+                  razorpay_payment_id: r.razorpay_payment_id,
+                  razorpay_signature: r.razorpay_signature
+                }
+              });
+              setMsg(`Payment successful! ${done.product.sold_count} pieces of "${product.name}" sold so far.`);
+            } catch (e) { setError(e.message); }
+          }
+        });
+        rzp.open();
+      } else {
+        setMsg(`Order placed (Cash on Delivery)! ${res.product.sold_count} pieces of "${product.name}" sold so far.`);
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="page">
+      <h2>{product.name}</h2>
+      {product.image_url && <img src={product.image_url} alt={product.name} className="hero-img" />}
+      <p>{product.description}</p>
+      <p className="price">₹{product.price}</p>
+      <p className="muted">{product.stock} in stock · {product.sold_count} sold</p>
+
+      <div className="form">
+        <label>Size</label>
+        <div className="chips">
+          {product.sizes.map((s) => (
+            <button key={s} className={s === size ? 'chip active' : 'chip'} onClick={() => setSize(s)}>{s}</button>
+          ))}
+        </div>
+        <label>Color</label>
+        <div className="chips">
+          {product.colors.map((c) => (
+            <button key={c} className={c === color ? 'chip active' : 'chip'} onClick={() => setColor(c)}>{c}</button>
+          ))}
+        </div>
+        <label>Quantity</label>
+        <input type="number" min="1" max={product.stock} value={qty}
+               onChange={(e) => setQty(Number(e.target.value))} />
+        <label>Payment</label>
+        <div className="chips">
+          <button className={paymentMethod === 'cod' ? 'chip active' : 'chip'}
+                  onClick={() => setPaymentMethod('cod')}>Cash on Delivery</button>
+          <button className={paymentMethod === 'razorpay' ? 'chip active' : 'chip'}
+                  onClick={() => setPaymentMethod('razorpay')}>Razorpay (Online)</button>
+        </div>
+        <button className="btn" onClick={placeOrder} disabled={busy || product.stock === 0}>
+          {busy ? 'Placing…' : product.stock === 0 ? 'Sold out' : 'Place Order'}
+        </button>
+        {msg && <p className="success">{msg}</p>}
+        {error && <p className="error">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+
+=== FILE: ./frontend/src/pages/ResetPassword.jsx ===
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+
+export default function ResetPassword() {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  const navigate = useNavigate();
+
+  // Supabase's email link logs the user into a temporary recovery session
+  // automatically; this page just lets them set a new password.
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setError(''); setMsg('');
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) setError(error.message);
+    else {
+      setMsg('Password updated. Redirecting to login…');
+      setTimeout(() => navigate('/login'), 2000);
+    }
+  };
+
+  return (
+    <div className="page">
+      <h2>Reset Password</h2>
+      <form onSubmit={handleUpdate} className="form">
+        <input type="password" placeholder="New password (min 6 chars)" value={password}
+               onChange={(e) => setPassword(e.target.value)} required />
+        {error && <p className="error">{error}</p>}
+        {msg && <p className="success">{msg}</p>}
+        <button type="submit" className="btn">Update Password</button>
+      </form>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/MyOrders.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../lib/api.js';
+
+export default function MyOrders() {
+  const [orders, setOrders] = useState([]);
+  useEffect(() => { api('/orders').then(setOrders).catch(() => {}); }, []);
+
+  return (
+    <div className="page">
+      <h2>My Orders</h2>
+      {orders.map((o) => (
+        <div className="card" key={o.id}>
+          <p><b>{new Date(o.created_at).toLocaleString()}</b></p>
+          <p>Total: ₹{o.total} · {o.payment_method === 'cod' ? 'Cash on Delivery' : 'Online'}</p>
+          <p>Status: {o.status} · Payment: {o.payment_status}</p>
+          <ul>
+            {(o.items || []).map((it, i) => (
+              <li key={i}>{it.product_name} — {it.size} / {it.color} × {it.quantity} @ ₹{it.unit_price}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+=== FILE: ./frontend/src/pages/admin/AdminOrders.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+
+export default function AdminOrders() {
+  const [orders, setOrders] = useState([]);
+  const load = () => api('/orders/all').then(setOrders).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const setStatus = async (id, status) => {
+    await api(`/orders/${id}/status`, { method: 'PATCH', body: { status } });
+    load();
+  };
+
+  return (
+    <div className="page">
+      <h2>All Orders</h2>
+      {orders.map((o) => (
+        <div className="card" key={o.id}>
+          <p><b>Order {o.id.slice(0, 8)}</b> · ₹{o.total} · {o.payment_method} · payment: {o.payment_status}</p>
+          <p>Status: {o.status} · Customer: {o.user_email || o.user_id}</p>
+          <ul>
+            {(o.items || []).map((it, i) => (
+              <li key={i}>{it.product_name} — {it.size} / {it.color} × {it.quantity}</li>
+            ))}
+          </ul>
+          <button className="btn-link" onClick={() => setStatus(o.id, 'confirmed')}>Confirm</button>
+          <button className="btn-link" onClick={() => setStatus(o.id, 'delivered')}>Delivered</button>
+          <button className="btn-link danger" onClick={() => setStatus(o.id, 'cancelled')}>Cancel</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+=== FILE: ./frontend/src/pages/admin/ShopSettings.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+
+export default function ShopSettings() {
+  const [form, setForm] = useState({ shop_name: '', address: '', phone: '', logo_url: '' });
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => { api('/settings').then(setForm).catch(() => {}); }, []);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const save = async () => {
+    await api('/settings', { method: 'PUT', body: form });
+    setMsg('Shop details saved.');
+  };
+
+  return (
+    <div className="page">
+      <h2>Shop Details</h2>
+      <div className="form">
+        <input placeholder="Shop name" value={form.shop_name} onChange={set('shop_name')} />
+        <textarea placeholder="Address" value={form.address} onChange={set('address')} />
+        <input placeholder="Phone" value={form.phone} onChange={set('phone')} />
+        <input placeholder="Logo URL" value={form.logo_url} onChange={set('logo_url')} />
+        <button className="btn" onClick={save}>Save</button>
+        {msg && <p className="success">{msg}</p>}
+      </div>
+    </div>
+  );
+}
+
+
+=== FILE: ./frontend/src/pages/admin/AdminProducts.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+
+const EMPTY = {
+  name: '', description: '', category: 'garments', price: 0, stock: 0,
+  sizes: 'XL, M, S', colors: 'Red, Blue', image_url: ''
+};
+
+export default function AdminProducts() {
+  const [products, setProducts] = useState([]);
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState(null);
+  const [msg, setMsg] = useState('');
+
+  const load = () => api('/products').then(setProducts).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const save = async () => {
+    const body = {
+      ...form,
+      price: Number(form.price),
+      stock: Number(form.stock),
+      sizes: form.sizes.split(',').map((s) => s.trim()).filter(Boolean),
+      colors: form.colors.split(',').map((s) => s.trim()).filter(Boolean)
+    };
+    if (editingId) {
+      await api(`/products/${editingId}`, { method: 'PATCH', body });
+      setMsg('Product updated (price & stock saved).');
+    } else {
+      await api('/products', { method: 'POST', body });
+      setMsg('Product added.');
+    }
+    setForm(EMPTY); setEditingId(null); load();
+  };
+
+  const edit = (p) => {
+    setEditingId(p.id);
+    setForm({ ...p, sizes: p.sizes.join(', '), colors: p.colors.join(', ') });
+  };
+
+  const remove = async (id) => {
+    await api(`/products/${id}`, { method: 'DELETE' }); load();
+  };
+
+  return (
+    <div className="page">
+      <h2>{editingId ? 'Edit Product' : 'Add Product'}</h2>
+      <div className="form">
+        <input placeholder="Name" value={form.name} onChange={set('name')} />
+        <textarea placeholder="Description" value={form.description} onChange={set('description')} />
+        <select value={form.category} onChange={set('category')}>
+          <option value="garments">Garments</option>
+          <option value="jewelry">Jewelry</option>
+        </select>
+        <input type="number" placeholder="Price ₹" value={form.price} onChange={set('price')} />
+        <input type="number" placeholder="Stock" value={form.stock} onChange={set('stock')} />
+        <input placeholder="Sizes (comma separated: XL, M, S, custom…)" value={form.sizes} onChange={set('sizes')} />
+        <input placeholder="Colors (comma separated)" value={form.colors} onChange={set('colors')} />
+        <input placeholder="Image URL (optional)" value={form.image_url} onChange={set('image_url')} />
+        <button className="btn" onClick={save}>{editingId ? 'Update' : 'Add'} Product</button>
+        {editingId && <button className="btn-link" onClick={() => { setEditingId(null); setForm(EMPTY); }}>Cancel edit</button>}
+        {msg && <p className="success">{msg}</p>}
+      </div>
+
+      <h2>All Products</h2>
+      {products.map((p) => (
+        <div className="card" key={p.id}>
+          <h3>{p.name} — ₹{p.price} · stock {p.stock} · {p.sold_count} sold</h3>
+          <p className="muted">{p.sizes.join(' / ')} · {p.colors.join(' / ')}</p>
+          <button className="btn-link" onClick={() => edit(p)}>Edit</button>
+          <button className="btn-link danger" onClick={() => remove(p.id)}>Delete</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+=== FILE: ./frontend/src/pages/ForgotPassword.jsx ===
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+
+export default function ForgotPassword() {
+  const [email, setEmail] = useState('');
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setError(''); setMsg('');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+    if (error) setError(error.message);
+    else setMsg('Check your email for a password reset link.');
+  };
+
+  return (
+    <div className="page">
+      <h2>Forgot Password</h2>
+      <form onSubmit={handleReset} className="form">
+        <input type="email" placeholder="Email" value={email}
+               onChange={(e) => setEmail(e.target.value)} required />
+        {error && <p className="error">{error}</p>}
+        {msg && <p className="success">{msg}</p>}
+        <button type="submit" className="btn">Send Reset Link</button>
+      </form>
+      <p><Link to="/login">Back to Login</Link></p>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/Login.jsx ===
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    else navigate('/');
+  };
+
+  // Google OAuth — after Google redirects back, the auth listener in
+  // lib/auth.jsx picks up the session automatically (no navigate needed).
+  const loginWithGoogle = async () => {
+    setError('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) setError(error.message);
+  };
+
+  return (
+    <div className="page">
+      <h2>Login</h2>
+      <form onSubmit={handleLogin} className="form">
+        <input type="email" placeholder="Email" value={email}
+               onChange={(e) => setEmail(e.target.value)} required />
+        <input type="password" placeholder="Password" value={password}
+               onChange={(e) => setPassword(e.target.value)} required />
+        <p><Link to="/forgot-password">Forgot password?</Link></p>
+        {error && <p className="error">{error}</p>}
+        <button type="submit" className="btn">Login</button>
+        <button type="button" className="btn" onClick={loginWithGoogle}>
+          Continue with Google
+        </button>
+      </form>
+      <p>No account? <Link to="/register">Register</Link></p>
+    </div>
+  );
+}
+
+
+=== FILE: ./frontend/src/pages/Register.jsx ===
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+
+export default function Register() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) setError(error.message);
+    else navigate('/');
+  };
+
+  const registerWithGoogle = async () => {
+    setError('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) setError(error.message);
+  };
+
+  return (
+    <div className="page">
+      <h2>Register</h2>
+      <form onSubmit={handleRegister} className="form">
+        <input type="email" placeholder="Email" value={email}
+               onChange={(e) => setEmail(e.target.value)} required />
+        <input type="password" placeholder="Password (min 6 chars)" value={password}
+               onChange={(e) => setPassword(e.target.value)} required />
+        {error && <p className="error">{error}</p>}
+        <button type="submit" className="btn">Register</button>
+        <button type="button" className="btn" onClick={registerWithGoogle}>
+          Continue with Google
+        </button>
+      </form>
+      <p>Have an account? <Link to="/login">Login</Link></p>
+    </div>
+  );
+}
+
+
+=== FILE: ./frontend/src/pages/Home.jsx ===
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../lib/api.js';
+
+export default function Home() {
+  const [settings, setSettings] = useState(null);
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    api('/settings').then(setSettings).catch(() => {});
+    api('/products').then(setProducts).catch(() => {});
+  }, []);
+
+  return (
+    <div className="page">
+      {settings && (
+        <header className="shop-header">
+          <img src={settings.logo_url} alt="logo" className="logo" />
+          <div>
+            <h1>{settings.shop_name}</h1>
+            <p>{settings.address}</p>
+            <p>Phone: {settings.phone}</p>
+          </div>
+        </header>
+      )}
+      <h2>Products</h2>
+      <div className="grid">
+        {products.map((p) => (
+          <Link to={`/product/${p.id}`} key={p.id} className="card">
+            {p.image_url && <img src={p.image_url} alt={p.name} />}
+            <h3>{p.name}</h3>
+            <p className="price">₹{p.price}</p>
+            <p className="muted">
+              {p.stock > 0 ? `${p.stock} in stock` : 'Sold out'} · {p.sold_count} sold
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+=== FILE: ./backend/app/routers/auth.py ===
+from fastapi import APIRouter, Depends
+from app.deps import get_current_user
+from app.config import ADMIN_USER_IDS
+
+router = APIRouter()
+
+
+@router.get("/api/me")
+def me(user: dict = Depends(get_current_user)):
+    """Frontend calls this to know if the logged-in user is an admin."""
+    return {"user_id": user.id, "email": user.email, "is_admin": user.id in ADMIN_USER_IDS}
+
+
+=== FILE: ./backend/app/routers/payments.py ===
+import hmac
+import hashlib
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase
+from app.deps import get_current_user
+from app.config import RAZORPAY_KEY_SECRET
+
+router = APIRouter()
+
+
+class VerifyIn(BaseModel):
+    internal_order_id: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@router.post("/api/payments/verify")
+def verify_payment(v: VerifyIn, user: dict = Depends(get_current_user)):
+    # 1. Check the signature really came from Razorpay
+    expected = hmac.new(
+        RAZORPAY_KEY_SECRET.encode(),
+        f"{v.razorpay_order_id}|{v.razorpay_payment_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, v.razorpay_signature):
+        raise HTTPException(400, "Payment verification failed.")
+
+    # 2. Load our order and make sure it belongs to this user & matches
+    rows = supabase.table("orders").select("*").eq("id", v.internal_order_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Order not found")
+    order = rows[0]
+    if order["user_id"] != user.id:
+        raise HTTPException(403, "Not your order.")
+    if order["razorpay_order_id"] != v.razorpay_order_id:
+        raise HTTPException(400, "Razorpay order mismatch.")
+    if order["payment_status"] == "paid":
+        return _result(order)  # already verified (idempotent)
+
+    # 3. Mark paid, then take stock & count the sale
+    order = supabase.table("orders").update({
+        "payment_status": "paid",
+        "status": "confirmed",
+    }).eq("id", order["id"]).execute().data[0]
+
+    item = supabase.table("order_items").select("*") \
+        .eq("order_id", order["id"]).execute().data[0]
+
+    prod = supabase.table("products").select("*").eq("id", item["product_id"]).execute().data[0]
+    prod = supabase.table("products").update({
+        "stock": max(prod["stock"] - item["quantity"], 0),
+        "sold_count": prod["sold_count"] + item["quantity"],
+    }).eq("id", prod["id"]).execute().data[0]
+
+    return _result(order, prod)
+
+
+def _result(order: dict, prod: dict = None):
+    out = {"order": order}
+    if prod:
+        out["product"] = {"id": prod["id"], "name": prod["name"],
+                          "sold_count": prod["sold_count"], "stock": prod["stock"]}
+    return out
+
+
+=== FILE: ./backend/app/routers/__init__.py ===
+
+
+=== FILE: ./backend/app/routers/products.py ===
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional, List
+from app.db import supabase
+from app.deps import get_current_user, require_admin
+
+router = APIRouter()
+
+
+class ProductIn(BaseModel):
+    name: str
+    description: str = ""
+    category: str = "garments"
+    price: float
+    stock: int = 0
+    sizes: List[str] = []
+    colors: List[str] = []
+    image_url: str = ""
+
+
+class ProductPatch(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    price: Optional[float] = None
+    stock: Optional[int] = None
+    sizes: Optional[List[str]] = None
+    colors: Optional[List[str]] = None
+    image_url: Optional[str] = None
+
+
+@router.get("/api/products")
+def list_products():
+    return supabase.table("products").select("*").order("created_at", desc=True).execute().data
+
+
+@router.get("/api/products/{product_id}")
+def get_product(product_id: str, ):
+    rows = supabase.table("products").select("*").eq("id", product_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Product not found")
+    return rows[0]
+
+
+@router.post("/api/products")
+def create_product(p: ProductIn, admin: dict = Depends(require_admin)):
+    return supabase.table("products").insert(p.model_dump()).execute().data[0]
+
+
+@router.patch("/api/products/{product_id}")
+def update_product(product_id: str, p: ProductPatch, admin: dict = Depends(require_admin)):
+    """Admin can change price and stock (and anything else) after creation."""
+    updates = {k: v for k, v in p.model_dump().items() if v is not None}
+    return supabase.table("products").update(updates).eq("id", product_id).execute().data[0]
+
+
+@router.delete("/api/products/{product_id}")
+def delete_product(product_id: str, admin: dict = Depends(require_admin)):
+    supabase.table("products").delete().eq("id", product_id).execute()
+    return {"deleted": True}
+
+
+=== FILE: ./backend/app/routers/orders.py ===
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase, razorpay_client
+from app.deps import get_current_user, require_admin
+from app.config import RAZORPAY_KEY_ID
+
+router = APIRouter()
+
+
+class OrderIn(BaseModel):
+    product_id: str
+    size: str
+    color: str
+    quantity: int = 1
+    payment_method: str  # 'cod' | 'razorpay'
+
+
+class StatusPatch(BaseModel):
+    status: str  # pending | confirmed | delivered | cancelled
+
+
+def _order_with_items(order_row: dict) -> dict:
+    items = supabase.table("order_items").select("*").eq("order_id", order_row["id"]).execute().data
+    return {**order_row, "items": items}
+
+
+@router.post("/api/orders")
+def place_order(o: OrderIn, user: dict = Depends(get_current_user)):
+    # 1. Load product and validate size/color/stock
+    rows = supabase.table("products").select("*").eq("id", o.product_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Product not found")
+    product = rows[0]
+
+    if o.size not in product["sizes"]:
+        raise HTTPException(400, f"Size '{o.size}' is not available for this product.")
+    if o.color not in product["colors"]:
+        raise HTTPException(400, f"Color '{o.color}' is not available for this product.")
+    if o.quantity < 1:
+        raise HTTPException(400, "Quantity must be at least 1.")
+    if product["stock"] < o.quantity:
+        raise HTTPException(400, f"Only {product['stock']} left in stock.")
+    if o.payment_method not in ("cod", "razorpay"):
+        raise HTTPException(400, "payment_method must be 'cod' or 'razorpay'.")
+
+    total = float(product["price"]) * o.quantity
+
+    # 2. Razorpay online payment → create the Razorpay order first
+    rzp_order_id = None
+    if o.payment_method == "razorpay":
+        rzp = razorpay_client.order.create({
+            "amount": int(total * 100),  # paise
+            "currency": "INR",
+            "receipt": f"order_{user.id[:8]}",
+        })
+        rzp_order_id = rzp["id"]
+
+    # 3. Save the order + item
+    order = supabase.table("orders").insert({
+        "user_id": user.id,
+        "user_email": user.email or "",
+        "total": total,
+        "payment_method": o.payment_method,
+        "payment_status": "cod_pending" if o.payment_method == "cod" else "unpaid",
+        "status": "confirmed" if o.payment_method == "cod" else "pending",
+        "razorpay_order_id": rzp_order_id,
+    }).execute().data[0]
+
+    supabase.table("order_items").insert({
+        "order_id": order["id"],
+        "product_id": product["id"],
+        "product_name": product["name"],
+        "size": o.size,
+        "color": o.color,
+        "quantity": o.quantity,
+        "unit_price": float(product["price"]),
+    }).execute()
+
+    # 4. COD: take stock & count the sale immediately.
+    #    Razorpay: stock is taken only AFTER payment is verified (payments.py).
+    if o.payment_method == "cod":
+        product = _apply_sale(product["id"], product["stock"], product["sold_count"], o.quantity)
+
+    result = {
+        "order": _order_with_items(order),
+        "product": {"id": product["id"], "name": product["name"],
+                     "sold_count": product["sold_count"], "stock": product["stock"]},
+    }
+    if o.payment_method == "razorpay":
+        result["razorpay"] = {
+            "key_id": RAZORPAY_KEY_ID,
+            "amount": int(total * 100),
+            "razorpay_order_id": rzp_order_id,
+        }
+    return result
+
+
+def _apply_sale(product_id: str, current_stock: int, current_sold: int, qty: int) -> dict:
+    """Decrease stock, increase sold_count. Returns the updated product row."""
+    return supabase.table("products").update({
+        "stock": current_stock - qty,
+        "sold_count": current_sold + qty,
+    }).eq("id", product_id).execute().data[0]
+
+
+@router.get("/api/orders")
+def my_orders(user: dict = Depends(get_current_user)):
+    rows = supabase.table("orders").select("*") \
+        .eq("user_id", user.id).order("created_at", desc=True).execute().data
+    return [_order_with_items(r) for r in rows]
+
+
+@router.get("/api/orders/all")
+def all_orders(admin: dict = Depends(require_admin)):
+    return [_order_with_items(r) for r in
+            supabase.table("orders").select("*").order("created_at", desc=True).execute().data]
+
+
+@router.patch("/api/orders/{order_id}/status")
+def update_status(order_id: str, body: StatusPatch, admin: dict = Depends(require_admin)):
+    if body.status not in ("pending", "confirmed", "delivered", "cancelled"):
+        raise HTTPException(400, "Invalid status.")
+    return supabase.table("orders") \
+        .update({"status": body.status}).eq("id", order_id).execute().data[0]
+
+
+=== FILE: ./backend/app/routers/settings.py ===
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from typing import Optional
+from app.db import supabase
+from app.deps import require_admin
+
+router = APIRouter()
+
+
+class SettingsIn(BaseModel):
+    shop_name: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    logo_url: Optional[str] = None
+
+
+@router.get("/api/settings")
+def get_settings():
+    rows = supabase.table("shop_settings").select("*").eq("id", 1).execute().data
+    return rows[0] if rows else {
+        "shop_name": "Lakshmi Garments and Jewelry",
+        "address": "Main Bazaar Road, Your City",
+        "phone": "+91 90000 00000",
+        "logo_url": "https://media.base44.com/images/public/6aae82cb01188ac2783c82e6/ac99a0ac8_generated_image.png",
+    }
+
+
+@router.put("/api/settings")
+def update_settings(s: SettingsIn, admin: dict = Depends(require_admin)):
+    updates = {k: v for k, v in s.model_dump().items() if v is not None}
+    supabase.table("shop_settings").update(updates).eq("id", 1).execute()
+    return get_settings()
+
+
+=== FILE: ./backend/app/db.py ===
+from supabase import create_client
+from app.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, \
+    RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
+import razorpay
+
+# Service-role client: bypasses RLS. Only the backend may use it.
+supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Razorpay client (test mode keys)
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+
+=== FILE: ./backend/app/deps.py ===
+from fastapi import Header, HTTPException, Depends
+from app.db import supabase
+from app.config import ADMIN_USER_IDS
+
+
+async def get_current_user(authorization: str = Header(...)) -> dict:
+    """Verifies the Supabase JWT the frontend sends as 'Authorization: Bearer …'."""
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        resp = supabase.auth.get_user(token)
+        return resp.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired session. Please log in again.")
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Only UUIDs listed in .env ADMIN_USER_IDS pass."""
+    if user.id not in ADMIN_USER_IDS:
+        raise HTTPException(status_code=403, detail="Admins only.")
+    return user
+
+
+=== FILE: ./backend/app/config.py ===
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# Comma-separated admin UUIDs from .env → e.g. ADMIN_USER_IDS=uuid1,uuid2
+ADMIN_USER_IDS = {
+    u.strip() for u in os.getenv("ADMIN_USER_IDS", "").split(",") if u.strip()
+}
+
+
+=== FILE: ./backend/app/__init__.py ===
+
+
+=== FILE: ./backend/app/main.py ===
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import FRONTEND_URL
+from app.routers import auth, products, orders, payments, settings
+
+app = FastAPI(title="Lakshmi Garments & Jewelry API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_URL],     # your frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(products.router)
+app.include_router(orders.router)
+app.include_router(payments.router)
+app.include_router(settings.router)
+
+
+@app.get("/api/health")
+def health():
+    return {"ok": True}
+
+
+=== FILE: ./backend/requirements.txt ===
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+supabase==2.7.3
+razorpay==1.4.2
+python-dotenv==1.0.1
+pydantic==2.9.2
+setuptools<81
+
+=== FILE: ./setup.py ===
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def is_separator(line):
+    s = line.strip()
+    return len(s) >= 20 and set(s) == {"-"}
+
+
+def finalize(buf):
+    # drop trailing separator/blank lines, then leading separator lines
+    while buf and (buf[-1].strip() == "" or is_separator(buf[-1])):
+        buf.pop()
+    while buf and is_separator(buf[0]):
+        buf.pop(0)
+    text = "\n".join(buf).rstrip() + "\n"
+    if text.strip() == "(empty file)":
+        return ""
+    return text
+
+
+def write(folder, rel, content):
+    # paths inside the txt start with "frontend/" or "backend/" — strip it
+    prefix = folder + "/"
+    if rel.startswith(prefix):
+        rel = rel[len(prefix):]
+    full = os.path.join(HERE, folder, rel)
+    os.makedirs(os.path.dirname(full) or HERE, exist_ok=True)
+    with open(full, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+    print("  created  " + os.path.join(folder, rel).replace("\\", "/"))
+    return 1
+
+
+def extract(txt_name, folder):
+    path = os.path.join(HERE, txt_name)
+    if not os.path.exists(path):
+        print("ERROR: " + txt_name + " not found next to setup.py")
+        sys.exit(1)
+    with open(path, encoding="utf-8-sig") as f:
+        lines = f.read().splitlines()
+    current, buf, count = None, [], 0
+    for line in lines:
+        if line.startswith("FILE: "):
+            if current is not None:
+                count += write(folder, current, finalize(buf))
+            current, buf = line[6:].strip(), []
+        elif line.strip() == "END OF FILES":
+            if current is not None:
+                count += write(folder, current, finalize(buf))
+            current, buf = None, []
+        elif current is not None:
+            buf.append(line)
+    if current is not None:
+        count += write(folder, current, finalize(buf))
+    return count
+
+
+if __name__ == "__main__":
+    print("Extracting frontend...")
+    n1 = extract("frontend.txt", "frontend")
+    print("Extracting backend...")
+    n2 = extract("backend.txt", "backend")
+    print("")
+    print("Done: " + str(n1) + " files -> app/frontend, "
+          + str(n2) + " files -> app/backend")
+    print("Next: 1) fill app/frontend/.env and app/backend/.env")
+    print("      2) run app/backend/schema.sql in Supabase SQL Editor")
+    print("      3) start backend:  cd backend && python -m venv venv")
+    print("         (Windows: venv\\Scripts\\activate | macOS/Linux: source venv/bin/activate)")
+    print("         pip install -r requirements.txt")
+    print("         uvicorn app.main:app --reload --port 8000")
+    print("      4) start frontend: cd ../frontend && npm install && npm run dev")
+
+

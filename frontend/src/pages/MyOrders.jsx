@@ -11,7 +11,7 @@ export default function MyOrders() {
       {orders.map((o) => (
         <div className="card" key={o.id}>
           <p><b>{new Date(o.created_at).toLocaleString()}</b></p>
-          <p>Total: ₹{o.total} · {o.payment_method === 'cod' ? 'Cash on Delivery' : 'Online'}</p>
+          <p>Total: ₹{o.total} · Online Payment</p>
           <p>Status: {o.status} · Payment: {o.payment_status}</p>
           <ul>
             {(o.items || []).map((it, i) => (

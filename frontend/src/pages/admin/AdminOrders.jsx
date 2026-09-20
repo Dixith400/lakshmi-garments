@@ -16,7 +16,7 @@ export default function AdminOrders() {
       <h2>All Orders</h2>
       {orders.map((o) => (
         <div className="card" key={o.id}>
-          <p><b>Order {o.id.slice(0, 8)}</b> · ₹{o.total} · {o.payment_method} · payment: {o.payment_status}</p>
+          <p><b>Order {o.id.slice(0, 8)}</b> · ₹{o.total} · Online Payment · payment: {o.payment_status}</p>
           <p>Status: {o.status} · Customer: {o.user_email || o.user_id}</p>
           <ul>
             {(o.items || []).map((it, i) => (
