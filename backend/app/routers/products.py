@@ -10,7 +10,7 @@ router = APIRouter()
 class ProductIn(BaseModel):
     name: str
     description: str = ""
-    category: str = "garments"
+    category_id: Optional[str] = None
     price: float
     stock: int = 0
     sizes: List[str] = []
@@ -21,13 +21,12 @@ class ProductIn(BaseModel):
 class ProductPatch(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    category: Optional[str] = None
+    category_id: Optional[str] = None
     price: Optional[float] = None
     stock: Optional[int] = None
     sizes: Optional[List[str]] = None
     colors: Optional[List[str]] = None
     image_url: Optional[str] = None
-
 
 @router.get("/api/products")
 def list_products():
