@@ -12,6 +12,9 @@ export default function AdminProducts() {
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
+  const [productImages, setProductImages] = useState({}); // productId -> [images]
+  const [imageError, setImageError] = useState('');
 
   const load = () => api('/products').then(setProducts).catch(() => {});
   useEffect(() => {
@@ -19,7 +22,62 @@ export default function AdminProducts() {
     api('/categories').then(setCategories).catch(() => {});
   }, []);
 
+
+  useEffect(() => {
+    products.forEach((p) => loadImages(p.id));
+  }, [products]);
+
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const ALLOWED = ['image/jpeg', 'image/png', 'image/gif', 'image/tiff'];
+
+  const handleFileSelect = (e) => {
+    setImageError('');
+    const files = Array.from(e.target.files);
+    const invalid = files.find((f) => !ALLOWED.includes(f.type));
+    if (invalid) {
+      setImageError(`"${invalid.name}" is not a supported format. Use JPEG, PNG, GIF, or TIFF.`);
+      setImageFiles([]);
+      e.target.value = '';
+      return;
+    }
+    setImageFiles(files);
+  };
+
+  const uploadImages = async (productId) => {
+    if (imageFiles.length === 0) return;
+    const formData = new FormData();
+    imageFiles.forEach((f) => formData.append('files', f));
+
+    const { supabase } = await import('../../lib/supabaseClient.js');
+    const { data: { session } } = await supabase.auth.getSession();
+    const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+    const res = await fetch(`${BASE}/api/products/${productId}/images`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Image upload failed');
+    }
+    setImageFiles([]);
+    loadImages(productId);
+  };
+
+  const loadImages = (productId) => {
+    api(`/products/${productId}/images`).then((imgs) =>
+      setProductImages((prev) => ({ ...prev, [productId]: imgs }))
+    );
+  };
+
+  const deleteImage = async (productId, imageId) => {
+    await api(`/products/${productId}/images/${imageId}`, { method: 'DELETE' });
+    loadImages(productId);
+  };
+
+
 
   const save = async () => {
     const body = {
@@ -30,15 +88,24 @@ export default function AdminProducts() {
       sizes: form.sizes.split(',').map((s) => s.trim()).filter(Boolean),
       colors: form.colors.split(',').map((s) => s.trim()).filter(Boolean)
     };
+    let productId = editingId;
     if (editingId) {
       await api(`/products/${editingId}`, { method: 'PATCH', body });
       setMsg('Product updated.');
     } else {
-      await api('/products', { method: 'POST', body });
+      const created = await api('/products', { method: 'POST', body });
+      productId = created.id;
       setMsg('Product added.');
+    }
+    try {
+      await uploadImages(productId);
+    } catch (e) {
+      setImageError(e.message);
     }
     setForm(EMPTY); setEditingId(null); load();
   };
+
+
 
   const edit = (p) => {
     setEditingId(p.id);
@@ -89,6 +156,10 @@ export default function AdminProducts() {
         <label>Image URL</label>
         <input placeholder="https://..." value={form.image_url} onChange={set('image_url')} />
 
+        <label>Product Images (JPEG, PNG, GIF, or TIFF — up to 6, 5MB each)</label>
+        <input type="file" accept=".jpg,.jpeg,.png,.gif,.tif,.tiff" multiple onChange={handleFileSelect} />
+        {imageError && <p className="error">{imageError}</p>}
+
         <button className="btn" onClick={save}>{editingId ? 'Update' : 'Add'} Product</button>
         {editingId && <button className="btn-link" onClick={() => { setEditingId(null); setForm(EMPTY); }}>Cancel edit</button>}
         {msg && <p className="success">{msg}</p>}
@@ -97,7 +168,16 @@ export default function AdminProducts() {
       <h2>All Products</h2>
       {products.map((p) => (
         <div className="card" key={p.id}>
+          
           <h3>{p.name} — ₹{p.price} · stock {p.stock} · {p.sold_count} sold</h3>
+          <div>
+            {productImages[p.id]?.map((img) => (
+              <span key={img.id} style={{ display: 'inline-block', margin: '4px' }}>
+                <img src={img.image_url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 6 }} />
+                <button className="btn-link danger" onClick={() => deleteImage(p.id, img.id)}> × </button>
+              </span>
+            ))}
+          </div>
           <p className="muted">{categoryName(p.category_id)}</p>
           <p className="muted">{p.sizes.join(' / ') || 'No sizes'} · {p.colors.join(' / ') || 'No colors'}</p>
           <button className="btn-link" onClick={() => edit(p)}>Edit</button>
