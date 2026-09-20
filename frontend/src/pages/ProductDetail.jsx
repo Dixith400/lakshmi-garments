@@ -19,7 +19,6 @@ export default function ProductDetail() {
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
   const [qty, setQty] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState('cod');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,41 +29,43 @@ export default function ProductDetail() {
   const placeOrder = async () => {
     setError(''); setMsg(''); setBusy(true);
     try {
-      if (!size || !color) { setError('Please pick a size and a color.'); setBusy(false); return; }
+      // Only require a selection if the admin actually configured options.
+      if (product.sizes.length > 0 && !size) {
+        setError('Please pick a size.'); setBusy(false); return;
+      }
+      if (product.colors.length > 0 && !color) {
+        setError('Please pick a color.'); setBusy(false); return;
+      }
 
       const res = await api('/orders', {
         method: 'POST',
-        body: { product_id: product.id, size, color, quantity: qty, payment_method: paymentMethod }
+        body: { product_id: product.id, size, color, quantity: qty }
       });
 
-      if (paymentMethod === 'razorpay') {
-        const ok = await loadRazorpay();
-        if (!ok) throw new Error('Could not load Razorpay.');
-        const rzp = new window.Razorpay({
-          key: res.razorpay.key_id,
-          amount: res.razorpay.amount,          // in paise
-          currency: 'INR',
-          name: 'Lakshmi Garments & Jewelry',
-          order_id: res.razorpay.razorpay_order_id,
-          handler: async (r) => {
-            try {
-              const done = await api('/payments/verify', {
-                method: 'POST',
-                body: {
-                  internal_order_id: res.order.id,
-                  razorpay_order_id: r.razorpay_order_id,
-                  razorpay_payment_id: r.razorpay_payment_id,
-                  razorpay_signature: r.razorpay_signature
-                }
-              });
-              setMsg(`Payment successful! ${done.product.sold_count} pieces of "${product.name}" sold so far.`);
-            } catch (e) { setError(e.message); }
-          }
-        });
-        rzp.open();
-      } else {
-        setMsg(`Order placed (Cash on Delivery)! ${res.product.sold_count} pieces of "${product.name}" sold so far.`);
-      }
+      const ok = await loadRazorpay();
+      if (!ok) throw new Error('Could not load Razorpay.');
+      const rzp = new window.Razorpay({
+        key: res.razorpay.key_id,
+        amount: res.razorpay.amount,
+        currency: 'INR',
+        name: 'Lakshmi Garments & Jewelry',
+        order_id: res.razorpay.razorpay_order_id,
+        handler: async (r) => {
+          try {
+            const done = await api('/payments/verify', {
+              method: 'POST',
+              body: {
+                internal_order_id: res.order.id,
+                razorpay_order_id: r.razorpay_order_id,
+                razorpay_payment_id: r.razorpay_payment_id,
+                razorpay_signature: r.razorpay_signature
+              }
+            });
+            setMsg(`Payment successful! ${done.product.sold_count} pieces of "${product.name}" sold so far.`);
+          } catch (e) { setError(e.message); }
+        }
+      });
+      rzp.open();
     } catch (e) {
       setError(e.message);
     }
@@ -80,30 +81,32 @@ export default function ProductDetail() {
       <p className="muted">{product.stock} in stock · {product.sold_count} sold</p>
 
       <div className="form">
-        <label>Size</label>
-        <div className="chips">
-          {product.sizes.map((s) => (
-            <button key={s} className={s === size ? 'chip active' : 'chip'} onClick={() => setSize(s)}>{s}</button>
-          ))}
-        </div>
-        <label>Color</label>
-        <div className="chips">
-          {product.colors.map((c) => (
-            <button key={c} className={c === color ? 'chip active' : 'chip'} onClick={() => setColor(c)}>{c}</button>
-          ))}
-        </div>
+        {product.sizes.length > 0 && (
+          <>
+            <label>Size</label>
+            <div className="chips">
+              {product.sizes.map((s) => (
+                <button key={s} className={s === size ? 'chip active' : 'chip'} onClick={() => setSize(s)}>{s}</button>
+              ))}
+            </div>
+          </>
+        )}
+        {product.colors.length > 0 && (
+          <>
+            <label>Color</label>
+            <div className="chips">
+              {product.colors.map((c) => (
+                <button key={c} className={c === color ? 'chip active' : 'chip'} onClick={() => setColor(c)}>{c}</button>
+              ))}
+            </div>
+          </>
+        )}
         <label>Quantity</label>
         <input type="number" min="1" max={product.stock} value={qty}
                onChange={(e) => setQty(Number(e.target.value))} />
-        <label>Payment</label>
-        <div className="chips">
-          <button className={paymentMethod === 'cod' ? 'chip active' : 'chip'}
-                  onClick={() => setPaymentMethod('cod')}>Cash on Delivery</button>
-          <button className={paymentMethod === 'razorpay' ? 'chip active' : 'chip'}
-                  onClick={() => setPaymentMethod('razorpay')}>Razorpay (Online)</button>
-        </div>
+        <p className="muted">Payment: Online (Razorpay) — secure card, UPI, or netbanking.</p>
         <button className="btn" onClick={placeOrder} disabled={busy || product.stock === 0}>
-          {busy ? 'Placing…' : product.stock === 0 ? 'Sold out' : 'Place Order'}
+          {busy ? 'Placing…' : product.stock === 0 ? 'Sold out' : 'Pay & Place Order'}
         </button>
         {msg && <p className="success">{msg}</p>}
         {error && <p className="error">{error}</p>}
