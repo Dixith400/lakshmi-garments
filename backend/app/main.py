@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import FRONTEND_URL
-from app.routers import auth, products, orders, payments, settings, categories
+from app.routers import auth, products, orders, payments, settings, categories, images, addresses
 
 app = FastAPI(title="Lakshmi Garments & Jewelry API")
 
@@ -19,7 +19,8 @@ app.include_router(orders.router)
 app.include_router(payments.router)
 app.include_router(settings.router)
 app.include_router(categories.router)
-
+app.include_router(images.router)
+app.include_router(addresses.router)
 
 @app.get("/api/health")
 def health():

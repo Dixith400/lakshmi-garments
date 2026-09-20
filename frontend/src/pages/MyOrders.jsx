@@ -18,6 +18,12 @@ export default function MyOrders() {
               <li key={i}>{it.product_name} — {it.size} / {it.color} × {it.quantity} @ ₹{it.unit_price}</li>
             ))}
           </ul>
+          {o.shipping_address && (
+              <p className="muted">
+                Ship to: {o.shipping_address.addressee_name}, {o.shipping_address.address_line1},{' '}
+                {o.shipping_address.city}, {o.shipping_address.state} - {o.shipping_address.pin_code}
+              </p>
+          )}
         </div>
       ))}
     </div>

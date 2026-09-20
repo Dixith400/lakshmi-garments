@@ -23,6 +23,16 @@ export default function ProductDetail() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [addressId, setAddressId] = useState('');
+
+  useEffect(() => {
+    api('/addresses').then((addrs) => {
+      setAddresses(addrs);
+      if (addrs.length > 0) setAddressId(addrs[0].id);
+    }).catch(() => {});
+  }, []);
+    
   
 
   useEffect(() => {
@@ -44,10 +54,17 @@ export default function ProductDetail() {
         setError('Please pick a color.'); setBusy(false); return;
       }
 
+      if (!addressId) {
+        setError('Please add and select a shipping address first.');
+        setBusy(false);
+        return;
+      }
+      // ...
       const res = await api('/orders', {
         method: 'POST',
-        body: { product_id: product.id, size, color, quantity: qty }
+        body: { product_id: product.id, size, color, quantity: qty, address_id: addressId }
       });
+      
 
       const ok = await loadRazorpay();
       if (!ok) throw new Error('Could not load Razorpay.');
@@ -82,16 +99,20 @@ export default function ProductDetail() {
   return (
     <div className="page">
       <h2>{product.name}</h2>
+
+
       {images.length > 0 ? (
-        <div className="chips">
+        <div className="image-gallery">
           {images.map((img) => (
-            <img key={img.id} src={img.image_url} alt={product.name}
-                className="hero-img" style={{ maxWidth: '200px', marginRight: '8px' }} />
+            <img key={img.id} src={img.image_url} alt={product.name} />
           ))}
         </div>
       ) : (
         product.image_url && <img src={product.image_url} alt={product.name} className="hero-img" />
-      )}      <p>{product.description}</p>
+      )}
+
+
+      <p>{product.description}</p>
       <p className="price">₹{product.price}</p>
       <p className="muted">{product.stock} in stock · {product.sold_count} sold</p>
 
@@ -106,6 +127,7 @@ export default function ProductDetail() {
             </div>
           </>
         )}
+
         {product.colors.length > 0 && (
           <>
             <label>Color</label>
@@ -119,6 +141,20 @@ export default function ProductDetail() {
         <label>Quantity</label>
         <input type="number" min="1" max={product.stock} value={qty}
                onChange={(e) => setQty(Number(e.target.value))} />
+        <label>Shipping Address</label>
+        {addresses.length === 0 ? (
+          <p className="muted">
+            No saved addresses. <Link to="/addresses">Add one here</Link> before ordering.
+          </p>
+        ) : (
+          <select value={addressId} onChange={(e) => setAddressId(e.target.value)}>
+            {addresses.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.addressee_name} — {a.address_line1}, {a.city} ({a.pin_code})
+              </option>
+            ))}
+          </select>
+        )}
         <p className="muted">Payment: Online (Razorpay) — secure card, UPI, or netbanking.</p>
         <button className="btn" onClick={placeOrder} disabled={busy || product.stock === 0}>
           {busy ? 'Placing…' : product.stock === 0 ? 'Sold out' : 'Pay & Place Order'}

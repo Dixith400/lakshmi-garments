@@ -13,6 +13,7 @@ import ShopSettings from './pages/admin/ShopSettings.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import AdminCategories from './pages/admin/AdminCategories.jsx';
+import Addresses from './pages/Addresses.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/admin/categories" element={<AdminOnly><AdminCategories /></AdminOnly>} />
+        <Route path="/addresses" element={<Protected><Addresses /></Protected>} />
       </Routes>
     </AuthProvider>
   );

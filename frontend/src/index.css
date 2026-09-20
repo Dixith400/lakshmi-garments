@@ -25,6 +25,8 @@ body { font-family: system-ui, sans-serif; background: #faf7f5; color: #2b2b2b; 
 .btn-link { text-decoration: underline; color: #5c1a1b; background: none; border: none; cursor: pointer; font-size: 14px; }
 .btn-link.danger { color: #b00; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.image-gallery { display: flex; flex-wrap: wrap; gap: 8px; }
+.image-gallery img { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; }
 .chip { padding: 6px 12px; border: 1px solid #ccc; border-radius: 999px; background: #fff; cursor: pointer; }
 .chip.active { background: #5c1a1b; color: #fff; border-color: #5c1a1b; }
 .error { color: #b00; } .success { color: #070; }
