@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
+
+
+
 
 function loadRazorpay() {
   return new Promise((resolve) => {
@@ -137,6 +140,20 @@ export default function ProductDetail() {
               ))}
             </div>
           </>
+        )}
+        <label>Shipping Address</label>
+          {addresses.length === 0 ? (
+            <p className="muted">
+              No saved addresses. <Link to="/addresses">Add one here</Link> before ordering.
+            </p>
+          ) : (
+            <select value={addressId} onChange={(e) => setAddressId(e.target.value)}>
+              {addresses.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.addressee_name} — {a.address_line1}, {a.city} ({a.pin_code})
+                </option>
+              ))}
+            </select>
         )}
         <label>Quantity</label>
         <input type="number" min="1" max={product.stock} value={qty}
