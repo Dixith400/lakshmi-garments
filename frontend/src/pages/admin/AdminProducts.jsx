@@ -2,24 +2,29 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 
 const EMPTY = {
-  name: '', description: '', category: 'garments', price: 0, stock: 0,
-  sizes: 'XL, M, S', colors: 'Red, Blue', image_url: ''
+  name: '', description: '', category_id: '', price: 0, stock: 0,
+  sizes: '', colors: '', image_url: ''
 };
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState('');
 
   const load = () => api('/products').then(setProducts).catch(() => {});
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api('/categories').then(setCategories).catch(() => {});
+  }, []);
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const save = async () => {
     const body = {
       ...form,
+      category_id: form.category_id || null,
       price: Number(form.price),
       stock: Number(form.stock),
       sizes: form.sizes.split(',').map((s) => s.trim()).filter(Boolean),
@@ -27,7 +32,7 @@ export default function AdminProducts() {
     };
     if (editingId) {
       await api(`/products/${editingId}`, { method: 'PATCH', body });
-      setMsg('Product updated (price & stock saved).');
+      setMsg('Product updated.');
     } else {
       await api('/products', { method: 'POST', body });
       setMsg('Product added.');
@@ -37,28 +42,53 @@ export default function AdminProducts() {
 
   const edit = (p) => {
     setEditingId(p.id);
-    setForm({ ...p, sizes: p.sizes.join(', '), colors: p.colors.join(', ') });
+    setForm({
+      ...p,
+      category_id: p.category_id || '',
+      sizes: p.sizes.join(', '),
+      colors: p.colors.join(', ')
+    });
   };
 
   const remove = async (id) => {
     await api(`/products/${id}`, { method: 'DELETE' }); load();
   };
 
+  const categoryName = (id) => categories.find((c) => c.id === id)?.name || 'Uncategorized';
+
   return (
     <div className="page">
       <h2>{editingId ? 'Edit Product' : 'Add Product'}</h2>
       <div className="form">
-        <input placeholder="Name" value={form.name} onChange={set('name')} />
-        <textarea placeholder="Description" value={form.description} onChange={set('description')} />
-        <select value={form.category} onChange={set('category')}>
-          <option value="garments">Garments</option>
-          <option value="jewelry">Jewelry</option>
+        <label>Product Name</label>
+        <input placeholder="e.g. Silk Saree - Red" value={form.name} onChange={set('name')} />
+
+        <label>Description</label>
+        <textarea placeholder="Short description shown on the product page" value={form.description} onChange={set('description')} />
+
+        <label>Category</label>
+        <select value={form.category_id} onChange={set('category_id')}>
+          <option value="">-- No category --</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
         </select>
-        <input type="number" placeholder="Price ₹" value={form.price} onChange={set('price')} />
-        <input type="number" placeholder="Stock" value={form.stock} onChange={set('stock')} />
-        <input placeholder="Sizes (comma separated: XL, M, S, custom…)" value={form.sizes} onChange={set('sizes')} />
-        <input placeholder="Colors (comma separated)" value={form.colors} onChange={set('colors')} />
-        <input placeholder="Image URL (optional)" value={form.image_url} onChange={set('image_url')} />
+
+        <label>Price (₹)</label>
+        <input type="number" placeholder="e.g. 1499" value={form.price} onChange={set('price')} />
+
+        <label>Stock</label>
+        <input type="number" placeholder="e.g. 20" value={form.stock} onChange={set('stock')} />
+
+        <label>Sizes (optional — leave blank if not applicable)</label>
+        <input placeholder="e.g. XL, M, S" value={form.sizes} onChange={set('sizes')} />
+
+        <label>Colors (optional — leave blank if not applicable)</label>
+        <input placeholder="e.g. Red, Blue" value={form.colors} onChange={set('colors')} />
+
+        <label>Image URL</label>
+        <input placeholder="https://..." value={form.image_url} onChange={set('image_url')} />
+
         <button className="btn" onClick={save}>{editingId ? 'Update' : 'Add'} Product</button>
         {editingId && <button className="btn-link" onClick={() => { setEditingId(null); setForm(EMPTY); }}>Cancel edit</button>}
         {msg && <p className="success">{msg}</p>}
@@ -68,7 +98,8 @@ export default function AdminProducts() {
       {products.map((p) => (
         <div className="card" key={p.id}>
           <h3>{p.name} — ₹{p.price} · stock {p.stock} · {p.sold_count} sold</h3>
-          <p className="muted">{p.sizes.join(' / ')} · {p.colors.join(' / ')}</p>
+          <p className="muted">{categoryName(p.category_id)}</p>
+          <p className="muted">{p.sizes.join(' / ') || 'No sizes'} · {p.colors.join(' / ') || 'No colors'}</p>
           <button className="btn-link" onClick={() => edit(p)}>Edit</button>
           <button className="btn-link danger" onClick={() => remove(p.id)}>Delete</button>
         </div>

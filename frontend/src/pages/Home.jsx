@@ -5,11 +5,22 @@ import { api } from '../lib/api.js';
 export default function Home() {
   const [settings, setSettings] = useState(null);
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeCategory, setActiveCategory] = useState(null);
+  const [search, setSearch] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     api('/settings').then(setSettings).catch(() => {});
     api('/products').then(setProducts).catch(() => {});
+    api('/categories').then(setCategories).catch(() => {});
   }, []);
+
+  const filtered = products.filter((p) => {
+    const matchesCategory = !activeCategory || p.category_id === activeCategory;
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="page">
@@ -23,9 +34,30 @@ export default function Home() {
           </div>
         </header>
       )}
+
+      <div className="form" style={{ maxWidth: '100%' }}>
+        <input placeholder="Search products…" value={search}
+               onChange={(e) => setSearch(e.target.value)} />
+      </div>
+
+      <button className="btn-link" onClick={() => setSidebarOpen(!sidebarOpen)}>
+        {sidebarOpen ? '▲ Hide categories' : '▼ Show categories'}
+      </button>
+
+      {sidebarOpen && (
+        <div className="chips" style={{ margin: '10px 0' }}>
+          <button className={!activeCategory ? 'chip active' : 'chip'}
+                  onClick={() => setActiveCategory(null)}>All</button>
+          {categories.map((c) => (
+            <button key={c.id} className={activeCategory === c.id ? 'chip active' : 'chip'}
+                    onClick={() => setActiveCategory(c.id)}>{c.name}</button>
+          ))}
+        </div>
+      )}
+
       <h2>Products</h2>
       <div className="grid">
-        {products.map((p) => (
+        {filtered.map((p) => (
           <Link to={`/product/${p.id}`} key={p.id} className="card">
             {p.image_url && <img src={p.image_url} alt={p.name} />}
             <h3>{p.name}</h3>
