@@ -37,11 +37,11 @@ export default function AdminProducts() {
     const invalid = files.find((f) => !ALLOWED.includes(f.type));
     if (invalid) {
       setImageError(`"${invalid.name}" is not a supported format. Use JPEG, PNG, GIF, or TIFF.`);
-      setImageFiles([]);
       e.target.value = '';
       return;
     }
-    setImageFiles(files);
+    setImageFiles((prev) => [...prev, ...files]);
+    e.target.value = ''; // reset input so selecting the same file again still triggers onChange
   };
 
   const uploadImages = async (productId) => {
@@ -155,11 +155,39 @@ export default function AdminProducts() {
 
         <label>Image URL</label>
         <input placeholder="https://..." value={form.image_url} onChange={set('image_url')} />
-
         <label>Product Images (JPEG, PNG, GIF, or TIFF — up to 6, 5MB each)</label>
-        <input type="file" accept=".jpg,.jpeg,.png,.gif,.tif,.tiff" multiple onChange={handleFileSelect} />
+        <input
+          id="product-image-input"
+          type="file"
+          accept=".jpg,.jpeg,.png,.gif,.tif,.tiff"
+          multiple
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
+        <button
+          type="button"
+          className="btn"
+          onClick={() => document.getElementById('product-image-input').click()}
+        >
+          Choose Images
+        </button>
+        <p className="muted">{imageFiles.length} file(s) selected</p>
         {imageError && <p className="error">{imageError}</p>}
+        {imageFiles.length > 0 && (
+          <div className="chips">
+            {imageFiles.map((f, i) => (
+              <span key={i} className="chip">
+                {f.name}
+                <button type="button" onClick={() => setImageFiles(imageFiles.filter((_, idx) => idx !== i))}
+                        style={{ marginLeft: '6px', border: 'none', background: 'none', cursor: 'pointer' }}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
 
+        
+
+        
         <button className="btn" onClick={save}>{editingId ? 'Update' : 'Add'} Product</button>
         {editingId && <button className="btn-link" onClick={() => { setEditingId(null); setForm(EMPTY); }}>Cancel edit</button>}
         {msg && <p className="success">{msg}</p>}
