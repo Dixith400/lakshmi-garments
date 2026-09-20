@@ -6,13 +6,21 @@ export default function Home() {
   const [settings, setSettings] = useState(null);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [productImages, setProductImages] = useState({});
   const [activeCategory, setActiveCategory] = useState(null);
   const [search, setSearch] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     api('/settings').then(setSettings).catch(() => {});
-    api('/products').then(setProducts).catch(() => {});
+    api('/products').then((prods) => {
+      setProducts(prods);
+      prods.forEach((p) => {
+        api(`/products/${p.id}/images`).then((imgs) =>
+          setProductImages((prev) => ({ ...prev, [p.id]: imgs }))
+        );
+      });
+    }).catch(() => {});
     api('/categories').then(setCategories).catch(() => {});
   }, []);
 
@@ -59,7 +67,9 @@ export default function Home() {
       <div className="grid">
         {filtered.map((p) => (
           <Link to={`/product/${p.id}`} key={p.id} className="card">
-            {p.image_url && <img src={p.image_url} alt={p.name} />}
+            {(productImages[p.id]?.[0]?.image_url || p.image_url) && (
+              <img src={productImages[p.id]?.[0]?.image_url || p.image_url} alt={p.name} />
+            )}
             <h3>{p.name}</h3>
             <p className="price">₹{p.price}</p>
             <p className="muted">

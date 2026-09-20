@@ -22,6 +22,12 @@ export default function ProductDetail() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [images, setImages] = useState([]);
+
+  useEffect(() => {
+    api(`/products/${id}`).then(setProduct).catch(() => {});
+    api(`/products/${id}/images`).then(setImages).catch(() => {});
+  }, [id]);
 
   useEffect(() => { api(`/products/${id}`).then(setProduct).catch(() => {}); }, [id]);
   if (!product) return <p className="page">Loading…</p>;
@@ -75,8 +81,16 @@ export default function ProductDetail() {
   return (
     <div className="page">
       <h2>{product.name}</h2>
-      {product.image_url && <img src={product.image_url} alt={product.name} className="hero-img" />}
-      <p>{product.description}</p>
+      {images.length > 0 ? (
+        <div className="chips">
+          {images.map((img) => (
+            <img key={img.id} src={img.image_url} alt={product.name}
+                className="hero-img" style={{ maxWidth: '200px', marginRight: '8px' }} />
+          ))}
+        </div>
+      ) : (
+        product.image_url && <img src={product.image_url} alt={product.name} className="hero-img" />
+      )}      <p>{product.description}</p>
       <p className="price">₹{product.price}</p>
       <p className="muted">{product.stock} in stock · {product.sold_count} sold</p>
 
@@ -113,4 +127,4 @@ export default function ProductDetail() {
       </div>
     </div>
   );
-}
+} hero
