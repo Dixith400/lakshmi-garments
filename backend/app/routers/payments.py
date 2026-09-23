@@ -45,21 +45,32 @@ def verify_payment(v: VerifyIn, user: dict = Depends(get_current_user)):
         "status": "confirmed",
     }).eq("id", order["id"]).execute().data[0]
 
-    item = supabase.table("order_items").select("*") \
-        .eq("order_id", order["id"]).execute().data[0]
+    items = supabase.table("order_items").select("*") \
+        .eq("order_id", order["id"]).execute().data
 
-    prod = supabase.table("products").select("*").eq("id", item["product_id"]).execute().data[0]
-    prod = supabase.table("products").update({
-        "stock": max(prod["stock"] - item["quantity"], 0),
-        "sold_count": prod["sold_count"] + item["quantity"],
-    }).eq("id", prod["id"]).execute().data[0]
+    updated_products = []
+    for item in items:
+        prod_rows = supabase.table("products").select("*").eq("id", item["product_id"]).execute().data
+        if not prod_rows:
+            continue  # product was deleted since ordering; skip stock update for it
+        prod = prod_rows[0]
+        prod = supabase.table("products").update({
+            "stock": max(prod["stock"] - item["quantity"], 0),
+            "sold_count": prod["sold_count"] + item["quantity"],
+        }).eq("id", prod["id"]).execute().data[0]
+        updated_products.append(prod)
 
-    return _result(order, prod)
+    # If this order came from the cart, clear those items now that payment succeeded.
+    supabase.table("cart_items").delete().eq("user_id", user.id).execute()
+
+    return _result(order, updated_products)
 
 
-def _result(order: dict, prod: dict = None):
+def _result(order: dict, products: list = None):
     out = {"order": order}
-    if prod:
-        out["product"] = {"id": prod["id"], "name": prod["name"],
-                          "sold_count": prod["sold_count"], "stock": prod["stock"]}
+    if products:
+        out["products"] = [
+            {"id": p["id"], "name": p["name"], "sold_count": p["sold_count"], "stock": p["stock"]}
+            for p in products
+        ]
     return out

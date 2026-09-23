@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
-import { Menu, X, Package, MapPin, Tag, ClipboardList, Store, LogIn, LogOut } from 'lucide-react';
+import { Menu, X, Package, MapPin, Tag, ClipboardList, Store, LogIn, LogOut, ShoppingCart, Heart } from 'lucide-react';
+import { useCart } from '../lib/cart.jsx';
+import { useWishlist } from '../lib/wishlist.jsx';
 
 export default function Navbar() {
   const { user, isAdmin, logout } = useAuth();
+  const { count: cartCount } = useCart();
+  const { count: wishCount } = useWishlist();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const linkClass = "flex items-center gap-1.5 text-ivory/90 hover:text-accent transition-colors text-sm font-medium";
@@ -33,6 +37,22 @@ export default function Navbar() {
             {isAdmin && <Link to="/admin/categories" className={linkClass}><Tag size={16} /> Categories</Link>}
             {isAdmin && <Link to="/admin/orders" className={linkClass}><ClipboardList size={16} /> Orders</Link>}
             {isAdmin && <Link to="/admin/shop-details" className={linkClass}><Store size={16} /> Shop Details</Link>}
+            {user && (
+              <Link to="/wishlist" className="relative text-ivory/90 hover:text-accent transition-colors">
+                <Heart size={19} />
+                {wishCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-accent text-brand-dark text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{wishCount}</span>
+                )}
+              </Link>
+            )}
+            {user && (
+              <Link to="/cart" className="relative text-ivory/90 hover:text-accent transition-colors">
+                <ShoppingCart size={19} />
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-accent text-brand-dark text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{cartCount}</span>
+                )}
+              </Link>
+            )}
             {user
               ? <button className="flex items-center gap-1.5 bg-accent text-brand-dark font-semibold text-sm px-4 py-1.5 rounded-full hover:opacity-90 transition-opacity" onClick={logout}><LogOut size={15} /> Logout</button>
               : <Link to="/login" className="flex items-center gap-1.5 bg-accent text-brand-dark font-semibold text-sm px-4 py-1.5 rounded-full hover:opacity-90 transition-opacity"><LogIn size={15} /> Login</Link>}
@@ -48,6 +68,8 @@ export default function Navbar() {
             {isAdmin && <Link to="/admin/categories" className={linkClass} onClick={() => setMenuOpen(false)}><Tag size={16} /> Categories</Link>}
             {isAdmin && <Link to="/admin/orders" className={linkClass} onClick={() => setMenuOpen(false)}><ClipboardList size={16} /> Orders</Link>}
             {isAdmin && <Link to="/admin/shop-details" className={linkClass} onClick={() => setMenuOpen(false)}><Store size={16} /> Shop Details</Link>}
+            {user && <Link to="/wishlist" className={linkClass} onClick={() => setMenuOpen(false)}><Heart size={16} /> Wishlist ({wishCount})</Link>}
+            {user && <Link to="/cart" className={linkClass} onClick={() => setMenuOpen(false)}><ShoppingCart size={16} /> Cart ({cartCount})</Link>}
             {user
               ? <button className="flex items-center gap-1.5 bg-accent text-brand-dark font-semibold text-sm px-4 py-1.5 rounded-full w-fit" onClick={() => { logout(); setMenuOpen(false); }}><LogOut size={15} /> Logout</button>
               : <Link to="/login" className="flex items-center gap-1.5 bg-accent text-brand-dark font-semibold text-sm px-4 py-1.5 rounded-full w-fit" onClick={() => setMenuOpen(false)}><LogIn size={15} /> Login</Link>}

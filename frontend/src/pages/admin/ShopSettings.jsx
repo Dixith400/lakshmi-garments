@@ -3,7 +3,7 @@ import { api } from '../../lib/api.js';
 import { Store } from 'lucide-react';
 
 export default function ShopSettings() {
-  const [form, setForm] = useState({ shop_name: '', address: '', phone: '', logo_url: '' });
+  const [form, setForm] = useState({ shop_name: '', address: '', phone: '', logo_url: '', owner_photo_url: '' });
   const [msg, setMsg] = useState('');
 
   useEffect(() => { api('/settings').then(setForm).catch(() => {}); }, []);
@@ -38,6 +38,10 @@ export default function ShopSettings() {
         <div>
           <label className="text-xs text-ink/50 mb-1 block">Logo URL</label>
           <input placeholder="Logo URL" value={form.logo_url} onChange={set('logo_url')} className={inputClass} />
+        </div>
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Owner Photo URL (shown on homepage banner)</label>
+          <input placeholder="https://..." value={form.owner_photo_url} onChange={set('owner_photo_url')} className={inputClass} />
         </div>
 
         <button onClick={save} className="w-full bg-brand text-white font-semibold py-2.5 rounded-full hover:bg-brand-dark transition-colors">

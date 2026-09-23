@@ -42,8 +42,12 @@ def all_orders(admin: dict = Depends(require_admin)):
 def update_status(order_id: str, body: StatusPatch, admin: dict = Depends(require_admin)):
     if body.status not in ("pending", "confirmed", "delivered", "cancelled"):
         raise HTTPException(400, "Invalid status.")
-    return supabase.table("orders") \
-        .update({"status": body.status}).eq("id", order_id).execute().data[0]
+    rows = supabase.table("orders") \
+        .update({"status": body.status}).eq("id", order_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Order not found.")
+    return rows[0]
+
 
 @router.post("/api/orders")
 def place_order(o: OrderIn, user: dict = Depends(get_current_user)):
@@ -104,6 +108,79 @@ def place_order(o: OrderIn, user: dict = Depends(get_current_user)):
         "quantity": o.quantity,
         "unit_price": float(product["price"]),
     }).execute()
+
+    return {
+        "order": _order_with_items(order),
+        "razorpay": {
+            "key_id": RAZORPAY_KEY_ID,
+            "amount": int(total * 100),
+            "razorpay_order_id": rzp_order_id,
+        },
+    }
+
+
+# cart checkout 
+@router.post("/api/orders/checkout-cart")
+def checkout_cart(address_id: str, user: dict = Depends(get_current_user)):
+    cart_rows = supabase.table("cart_items").select("*").eq("user_id", user.id).execute().data
+    if not cart_rows:
+        raise HTTPException(400, "Your cart is empty.")
+
+    addr_rows = supabase.table("addresses").select("*") \
+        .eq("id", address_id).eq("user_id", user.id).execute().data
+    if not addr_rows:
+        raise HTTPException(400, "Please select a valid shipping address.")
+    address = addr_rows[0]
+
+    # Validate every item and build the order_items we'll insert, before creating anything.
+    line_items = []
+    total = 0.0
+    for c in cart_rows:
+        prod_rows = supabase.table("products").select("*").eq("id", c["product_id"]).execute().data
+        if not prod_rows:
+            raise HTTPException(400, "One of the items in your cart no longer exists.")
+        prod = prod_rows[0]
+        if prod["stock"] < c["quantity"]:
+            raise HTTPException(400, f"Only {prod['stock']} of \"{prod['name']}\" left in stock.")
+        line_total = float(prod["price"]) * c["quantity"]
+        total += line_total
+        line_items.append({
+            "product_id": prod["id"],
+            "product_name": prod["name"],
+            "size": c["size"],
+            "color": c["color"],
+            "quantity": c["quantity"],
+            "unit_price": float(prod["price"]),
+        })
+
+    rzp = razorpay_client.order.create({
+        "amount": int(total * 100),
+        "currency": "INR",
+        "receipt": f"cart_{user.id[:8]}",
+    })
+    rzp_order_id = rzp["id"]
+
+    order = supabase.table("orders").insert({
+        "user_id": user.id,
+        "user_email": user.email or "",
+        "total": total,
+        "payment_method": "razorpay",
+        "payment_status": "unpaid",
+        "status": "pending",
+        "razorpay_order_id": rzp_order_id,
+        "shipping_address": {
+            "addressee_name": address["addressee_name"],
+            "address_line1": address["address_line1"],
+            "address_line2": address["address_line2"],
+            "city": address["city"],
+            "state": address["state"],
+            "pin_code": address["pin_code"],
+            "country": address["country"],
+        },
+    }).execute().data[0]
+
+    for li in line_items:
+        supabase.table("order_items").insert({"order_id": order["id"], **li}).execute()
 
     return {
         "order": _order_with_items(order),

@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isAdminLoading, setIsAdminLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -24,19 +25,23 @@ export function AuthProvider({ children }) {
 
   // Ask the backend who this user is (backend checks ADMIN_USER_IDS from its .env)
   useEffect(() => {
-    if (!user) { setIsAdmin(false); return; }
+    if (loading) return; // wait until we know if there's a session at all
+    if (!user) { setIsAdmin(false); setIsAdminLoading(false); return; }
+    setIsAdminLoading(true);
     api('/me')
       .then((me) => setIsAdmin(!!me.is_admin))
-      .catch(() => setIsAdmin(false));
-  }, [user]);
+      .catch(() => setIsAdmin(false))
+      .finally(() => setIsAdminLoading(false));
+  }, [user, loading]);
 
   const logout = () => supabase.auth.signOut();
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, isAdminLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );
+  
 }
 
 export const useAuth = () => useContext(AuthContext);

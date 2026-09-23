@@ -50,7 +50,10 @@ def create_product(p: ProductIn, admin: dict = Depends(require_admin)):
 def update_product(product_id: str, p: ProductPatch, admin: dict = Depends(require_admin)):
     """Admin can change price and stock (and anything else) after creation."""
     updates = {k: v for k, v in p.model_dump().items() if v is not None}
-    return supabase.table("products").update(updates).eq("id", product_id).execute().data[0]
+    rows = supabase.table("products").update(updates).eq("id", product_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Product not found.")
+    return rows[0]
 
 
 @router.delete("/api/products/{product_id}")

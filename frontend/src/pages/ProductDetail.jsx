@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { Minus, Plus, MapPin, ShieldCheck } from 'lucide-react';
+import { Minus, Plus, MapPin, ShieldCheck, Heart, ShoppingCart } from 'lucide-react';
+import { useCart } from '../lib/cart.jsx';
+import { useWishlist } from '../lib/wishlist.jsx';
 
 function loadRazorpay() {
   return new Promise((resolve) => {
@@ -16,6 +18,8 @@ function loadRazorpay() {
 
 export default function ProductDetail() {
   const { id } = useParams();
+  const { addToCart } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
   const [product, setProduct] = useState(null);
   const [images, setImages] = useState([]);
   const [activeImage, setActiveImage] = useState(0);
@@ -75,7 +79,7 @@ export default function ProductDetail() {
                 razorpay_signature: r.razorpay_signature
               }
             });
-            setMsg(`Payment successful! ${done.product.sold_count} pieces of "${product.name}" sold so far.`);
+            setMsg(`Payment successful! ${done.products?.[0]?.sold_count ?? ''} pieces of "${product.name}" sold so far.`);
           } catch (e) { setError(e.message); }
         }
       });
@@ -84,6 +88,18 @@ export default function ProductDetail() {
       setError(e.message);
     }
     setBusy(false);
+  };
+
+  const handleAddToCart = async () => {
+    setError(''); setMsg('');
+    if (product.sizes.length > 0 && !size) { setError('Please pick a size.'); return; }
+    if (product.colors.length > 0 && !color) { setError('Please pick a color.'); return; }
+    try {
+      await addToCart(product.id, size, color, qty);
+      setMsg('Added to cart.');
+    } catch (e) {
+      setError(e.message);
+    }
   };
 
   return (
@@ -115,7 +131,12 @@ export default function ProductDetail() {
 
         {/* Details */}
         <div>
-          <h2 className="text-2xl font-serif font-bold text-ink">{product.name}</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-2xl font-serif font-bold text-ink">{product.name}</h2>
+            <button onClick={() => toggleWishlist(product.id)} className="shrink-0 p-1.5">
+              <Heart size={22} className={isWishlisted(product.id) ? 'fill-red-500 text-red-500' : 'text-ink/30'} />
+            </button>
+          </div>
           <p className="text-ink/60 mt-1">{product.description}</p>
           <p className="text-brand text-2xl font-bold mt-3">₹{product.price}</p>
           <p className="text-ink/50 text-sm mt-1">
@@ -197,13 +218,22 @@ export default function ProductDetail() {
               <ShieldCheck size={15} /> Secure online payment via Razorpay
             </p>
 
-            <button
-              onClick={placeOrder}
-              disabled={busy || product.stock === 0}
-              className="w-full bg-brand text-white font-semibold py-3 rounded-full hover:bg-brand-dark transition-colors disabled:opacity-50"
-            >
-              {busy ? 'Placing…' : product.stock === 0 ? 'Sold out' : 'Pay & Place Order'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-brand text-brand font-semibold py-3 rounded-full hover:bg-brand/5 transition-colors disabled:opacity-50"
+              >
+                <ShoppingCart size={16} /> Add to Cart
+              </button>
+              <button
+                onClick={placeOrder}
+                disabled={busy || product.stock === 0}
+                className="flex-1 bg-brand text-white font-semibold py-3 rounded-full hover:bg-brand-dark transition-colors disabled:opacity-50"
+              >
+                {busy ? 'Placing…' : product.stock === 0 ? 'Sold out' : 'Buy Now'}
+              </button>
+            </div>
 
             {msg && <p className="text-green-700 text-sm">{msg}</p>}
             {error && <p className="text-red-600 text-sm">{error}</p>}

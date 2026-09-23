@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Heart, ShoppingCart } from 'lucide-react';
+import { useAuth } from '../lib/auth.jsx';
+import { useCart } from '../lib/cart.jsx';
+import { useWishlist } from '../lib/wishlist.jsx';
 
 export default function Home() {
   const [settings, setSettings] = useState(null);
@@ -11,6 +14,10 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [search, setSearch] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
 
   useEffect(() => {
     api('/settings').then(setSettings).catch(() => {});
@@ -34,12 +41,23 @@ export default function Home() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {settings && (
-        <header className="flex flex-col sm:flex-row items-center gap-4 bg-white rounded-2xl shadow-sm p-5 mb-6">
-          <img src={settings.logo_url} alt="logo" className="w-20 h-20 object-contain rounded-2xl" />
-          <div className="text-center sm:text-left">
-            <h1 className="text-xl font-serif font-bold text-brand">{settings.shop_name}</h1>
-            <p className="text-ink/70 text-sm">{settings.address}</p>
-            <p className="text-ink/70 text-sm">Phone: {settings.phone}</p>
+        <header className="flex flex-col sm:flex-row bg-white rounded-2xl shadow-sm overflow-hidden mb-6">
+          {settings.owner_photo_url && (
+            <div className="w-full h-40 sm:w-80 sm:h-[150px] order-first shrink-0 overflow-hidden">
+              <img
+                src={settings.owner_photo_url}
+                alt=""
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-4 p-5 flex-1">
+            <img src={settings.logo_url} alt="logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-2xl shrink-0" />
+            <div className="text-left">
+              <h1 className="text-lg sm:text-xl font-serif font-bold text-brand">{settings.shop_name}</h1>
+              <p className="text-ink/70 text-xs sm:text-sm">{settings.address}</p>
+              <p className="text-ink/70 text-xs sm:text-sm">Phone: {settings.phone}</p>
+            </div>
           </div>
         </header>
       )}
@@ -85,26 +103,40 @@ export default function Home() {
       <h2 className="text-lg font-serif font-semibold text-ink mb-3">Products</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {filtered.map((p) => (
-          <Link
-            to={`/product/${p.id}`}
-            key={p.id}
-            className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-          >
-            {(productImages[p.id]?.[0]?.image_url || p.image_url) && (
-              <img
-                src={productImages[p.id]?.[0]?.image_url || p.image_url}
-                alt={p.name}
-                className="w-full h-36 object-cover"
-              />
+          <div key={p.id} className="relative bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+            {user && (
+              <button
+                onClick={(e) => { e.preventDefault(); toggleWishlist(p.id); }}
+                className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1.5 shadow-sm"
+              >
+                <Heart size={16} className={isWishlisted(p.id) ? 'fill-red-500 text-red-500' : 'text-ink/40'} />
+              </button>
             )}
-            <div className="p-3">
-              <h3 className="font-medium text-ink text-sm truncate">{p.name}</h3>
-              <p className="text-brand font-bold">₹{p.price}</p>
-              <p className="text-ink/50 text-xs">
-                {p.stock > 0 ? `${p.stock} in stock` : 'Sold out'} · {p.sold_count} sold
-              </p>
-            </div>
-          </Link>
+            <Link to={`/product/${p.id}`}>
+              {(productImages[p.id]?.[0]?.image_url || p.image_url) && (
+                <img
+                  src={productImages[p.id]?.[0]?.image_url || p.image_url}
+                  alt={p.name}
+                  className="w-full h-36 object-cover"
+                />
+              )}
+              <div className="p-3">
+                <h3 className="font-medium text-ink text-sm truncate">{p.name}</h3>
+                <p className="text-brand font-bold">₹{p.price}</p>
+                <p className="text-ink/50 text-xs">
+                  {p.stock > 0 ? `${p.stock} in stock` : 'Sold out'} · {p.sold_count} sold
+                </p>
+              </div>
+            </Link>
+            {user && p.sizes.length === 0 && p.colors.length === 0 && p.stock > 0 && (
+              <button
+                onClick={() => addToCart(p.id, '', '', 1)}
+                className="w-full flex items-center justify-center gap-1.5 bg-brand/10 text-brand text-xs font-semibold py-2 hover:bg-brand/20 transition-colors"
+              >
+                <ShoppingCart size={13} /> Add to Cart
+              </button>
+            )}
+          </div>
         ))}
         {filtered.length === 0 && (
           <p className="col-span-full text-center text-ink/50 py-8">No products found.</p>

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth.jsx';
+import { CartProvider } from './lib/cart.jsx';
+import { WishlistProvider } from './lib/wishlist.jsx';
 import Navbar from './components/Navbar.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
@@ -14,6 +16,8 @@ import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import AdminCategories from './pages/admin/AdminCategories.jsx';
 import Addresses from './pages/Addresses.jsx';
+import Cart from './pages/Cart.jsx';
+import Wishlist from './pages/Wishlist.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -23,7 +27,8 @@ function Protected({ children }) {
 }
 
 function AdminOnly({ children }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, loading, isAdminLoading } = useAuth();
+  if (loading || isAdminLoading) return <p className="page">Loading…</p>;
   if (!isAdmin) return <p className="page">Admins only.</p>;
   return children;
 }
@@ -31,6 +36,8 @@ function AdminOnly({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <CartProvider>
+      <WishlistProvider>
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
@@ -45,7 +52,12 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/admin/categories" element={<AdminOnly><AdminCategories /></AdminOnly>} />
         <Route path="/addresses" element={<Protected><Addresses /></Protected>} />
+        <Route path="/cart" element={<Protected><Cart /></Protected>} />
+        <Route path="/wishlist" element={<Protected><Wishlist /></Protected>} />
+     
       </Routes>
+      </WishlistProvider>
+      </CartProvider>
     </AuthProvider>
   );
 }
