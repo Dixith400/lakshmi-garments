@@ -7,7 +7,7 @@ app = FastAPI(title="Lakshmi Garments & Jewelry API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],     # your frontend origin
+    allow_origins=[FRONTEND_URL, ],     # your frontend origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

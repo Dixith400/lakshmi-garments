@@ -18,13 +18,11 @@ class CartQtyPatch(BaseModel):
 
 
 def _cart_with_products(rows: list) -> list:
-    """Attach current product info (name, price, stock, image) to each cart row
-    so the frontend doesn't need a second round-trip per item."""
     out = []
     for r in rows:
         prod_rows = supabase.table("products").select("*").eq("id", r["product_id"]).execute().data
         if not prod_rows:
-            continue  # product was deleted; skip stale cart row
+            continue
         prod = prod_rows[0]
         out.append({
             **r,
@@ -33,6 +31,7 @@ def _cart_with_products(rows: list) -> list:
                 "name": prod["name"],
                 "price": prod["price"],
                 "stock": prod["stock"],
+                "sold_count": prod["sold_count"],   # ← added
                 "image_url": prod["image_url"],
             }
         })

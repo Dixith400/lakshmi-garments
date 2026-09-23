@@ -1,0 +1,3 @@
+find . -type f \( -name "*.jsx" -o -name "*.py" -o -name "*.sql" -o -name "vercel.json" -o -name "package.json" \) -not -path '*/.*' -not -path '*/node_modules/*' -not -path '*/venv/*' -not -path '*/dist/*' -not -path '*/build/*' -exec sh -c 'for f; do echo "=== FILE: $f ==="; cat "$f"; echo "\n"; done' _ {} + > llm_input.txt
+
+# =>>>>> keep all in singapor that's the nearest<<<<= 

@@ -93,7 +93,7 @@ create table if not exists shop_settings (
   address text default 'Main Bazaar Road, Your City',
   phone text default '+91 90000 00000',
   logo_url text default 'https://media.base44.com/images/public/6aae82cb01188ac2783c82e6/ac99a0ac8_generated_image.png',
-  hero_image_url text default ''
+  owner_photo_url text default ''
 );
 
 insert into shop_settings (id) values (1) on conflict (id) do nothing;
@@ -105,3 +105,34 @@ alter table orders enable row level security;
 alter table order_items enable row level security;
 alter table addresses enable row level security;
 alter table shop_settings enable row level security;
+
+create table if not exists cart_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  product_id uuid,
+  size text default '',
+  color text default '',
+  quantity integer not null default 1,
+  created_at timestamptz default now()
+);
+
+alter table cart_items
+  drop constraint if exists cart_items_product_id_fkey,
+  add constraint cart_items_product_id_fkey
+    foreign key (product_id) references products(id) on delete cascade;
+
+create table if not exists wishlist_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  product_id uuid,
+  created_at timestamptz default now()
+);
+
+alter table wishlist_items
+  drop constraint if exists wishlist_items_product_id_fkey,
+  add constraint wishlist_items_product_id_fkey
+    foreign key (product_id) references products(id) on delete cascade;
+
+alter table cart_items enable row level security;
+alter table wishlist_items enable row level security;
+
