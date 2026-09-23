@@ -1,0 +1,2769 @@
+=== FILE: ./frontend/vercel.json ===
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+
+=== FILE: ./frontend/package.json ===
+{
+  "name": "lakshmi-garments-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "@tailwindcss/vite": "^4.1.0",
+    "lucide-react": "^0.462.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "tailwindcss": "^4.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
+  }
+}
+
+=== FILE: ./frontend/src/components/Navbar.jsx ===
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../lib/auth.jsx';
+import { Menu, X, Package, MapPin, Tag, ClipboardList, Store, LogIn, LogOut, ShoppingCart, Heart } from 'lucide-react';
+import { useCart } from '../lib/cart.jsx';
+import { useWishlist } from '../lib/wishlist.jsx';
+
+export default function Navbar() {
+  const { user, isAdmin, logout } = useAuth();
+  const { count: cartCount } = useCart();
+  const { count: wishCount } = useWishlist();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const linkClass = "flex items-center gap-1.5 text-ivory/90 hover:text-accent transition-colors text-sm font-medium";
+
+  return (
+    <div className="sticky top-3 z-50 px-3">
+      <nav className="max-w-6xl mx-auto bg-brand rounded-2xl shadow-lg">
+        <div className="px-5 py-3 flex items-center justify-between">
+          <Link to="/" className="font-serif font-bold text-lg text-accent tracking-wide" onClick={() => setMenuOpen(false)}>
+            Lakshmi Garments &amp; Jewelry
+          </Link>
+
+          <button
+            className="md:hidden text-accent"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle menu"
+          >
+            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+
+          <div className="hidden md:flex flex-wrap gap-6 items-center">
+            <Link to="/" className={linkClass}><Store size={16} /> Home</Link>
+            {user && <Link to="/my-orders" className={linkClass}><ClipboardList size={16} /> My Orders</Link>}
+            {user && <Link to="/addresses" className={linkClass}><MapPin size={16} /> Addresses</Link>}
+            {isAdmin && <Link to="/admin/products" className={linkClass}><Package size={16} /> Products</Link>}
+            {isAdmin && <Link to="/admin/categories" className={linkClass}><Tag size={16} /> Categories</Link>}
+            {isAdmin && <Link to="/admin/orders" className={linkClass}><ClipboardList size={16} /> Orders</Link>}
+            {isAdmin && <Link to="/admin/shop-details" className={linkClass}><Store size={16} /> Shop Details</Link>}
+            {user && (
+              <Link to="/wishlist" className="relative text-ivory/90 hover:text-accent transition-colors">
+                <Heart size={19} />
+                {wishCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-accent text-brand-dark text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{wishCount}</span>
+                )}
+              </Link>
+            )}
+            {user && (
+              <Link to="/cart" className="relative text-ivory/90 hover:text-accent transition-colors">
+                <ShoppingCart size={19} />
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-accent text-brand-dark text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{cartCount}</span>
+                )}
+              </Link>
+            )}
+            {user
+              ? <button className="flex items-center gap-1.5 bg-accent text-brand-dark font-semibold text-sm px-4 py-1.5 rounded-full hover:opacity-90 transition-opacity" onClick={logout}><LogOut size={15} /> Logout</button>
+              : <Link to="/login" className="flex items-center gap-1.5 bg-accent text-brand-dark font-semibold text-sm px-4 py-1.5 rounded-full hover:opacity-90 transition-opacity"><LogIn size={15} /> Login</Link>}
+          </div>
+        </div>
+
+        {menuOpen && (
+          <div className="md:hidden bg-brand-dark rounded-b-2xl flex flex-col gap-4 px-5 py-4">
+            <Link to="/" className={linkClass} onClick={() => setMenuOpen(false)}><Store size={16} /> Home</Link>
+            {user && <Link to="/my-orders" className={linkClass} onClick={() => setMenuOpen(false)}><ClipboardList size={16} /> My Orders</Link>}
+            {user && <Link to="/addresses" className={linkClass} onClick={() => setMenuOpen(false)}><MapPin size={16} /> Addresses</Link>}
+            {isAdmin && <Link to="/admin/products" className={linkClass} onClick={() => setMenuOpen(false)}><Package size={16} /> Products</Link>}
+            {isAdmin && <Link to="/admin/categories" className={linkClass} onClick={() => setMenuOpen(false)}><Tag size={16} /> Categories</Link>}
+            {isAdmin && <Link to="/admin/orders" className={linkClass} onClick={() => setMenuOpen(false)}><ClipboardList size={16} /> Orders</Link>}
+            {isAdmin && <Link to="/admin/shop-details" className={linkClass} onClick={() => setMenuOpen(false)}><Store size={16} /> Shop Details</Link>}
+            {user && <Link to="/wishlist" className={linkClass} onClick={() => setMenuOpen(false)}><Heart size={16} /> Wishlist ({wishCount})</Link>}
+            {user && <Link to="/cart" className={linkClass} onClick={() => setMenuOpen(false)}><ShoppingCart size={16} /> Cart ({cartCount})</Link>}
+            {user
+              ? <button className="flex items-center gap-1.5 bg-accent text-brand-dark font-semibold text-sm px-4 py-1.5 rounded-full w-fit" onClick={() => { logout(); setMenuOpen(false); }}><LogOut size={15} /> Logout</button>
+              : <Link to="/login" className="flex items-center gap-1.5 bg-accent text-brand-dark font-semibold text-sm px-4 py-1.5 rounded-full w-fit" onClick={() => setMenuOpen(false)}><LogIn size={15} /> Login</Link>}
+          </div>
+        )}
+      </nav>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/main.jsx ===
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App.jsx';
+import './index.css';
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter 
+      future={{ 
+        v7_relativeSplatPath: true, 
+        v7_startTransition: true // Fixes the new warning
+      }}
+    >
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
+
+
+=== FILE: ./frontend/src/App.jsx ===
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './lib/auth.jsx';
+import { CartProvider } from './lib/cart.jsx';
+import { WishlistProvider } from './lib/wishlist.jsx';
+import Navbar from './components/Navbar.jsx';
+import Home from './pages/Home.jsx';
+import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
+import MyOrders from './pages/MyOrders.jsx';
+import AdminProducts from './pages/admin/AdminProducts.jsx';
+import AdminOrders from './pages/admin/AdminOrders.jsx';
+import ShopSettings from './pages/admin/ShopSettings.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
+import AdminCategories from './pages/admin/AdminCategories.jsx';
+import Addresses from './pages/Addresses.jsx';
+import Cart from './pages/Cart.jsx';
+import Wishlist from './pages/Wishlist.jsx';
+
+function Protected({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <p className="page">Loading…</p>;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function AdminOnly({ children }) {
+  const { isAdmin, loading, isAdminLoading } = useAuth();
+  if (loading || isAdminLoading) return <p className="page">Loading…</p>;
+  if (!isAdmin) return <p className="page">Admins only.</p>;
+  return children;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <CartProvider>
+      <WishlistProvider>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/product/:id" element={<Protected><ProductDetail /></Protected>} />
+        <Route path="/my-orders" element={<Protected><MyOrders /></Protected>} />
+        <Route path="/admin/products" element={<AdminOnly><AdminProducts /></AdminOnly>} />
+        <Route path="/admin/orders" element={<AdminOnly><AdminOrders /></AdminOnly>} />
+        <Route path="/admin/shop-details" element={<AdminOnly><ShopSettings /></AdminOnly>} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/admin/categories" element={<AdminOnly><AdminCategories /></AdminOnly>} />
+        <Route path="/addresses" element={<Protected><Addresses /></Protected>} />
+        <Route path="/cart" element={<Protected><Cart /></Protected>} />
+        <Route path="/wishlist" element={<Protected><Wishlist /></Protected>} />
+     
+      </Routes>
+      </WishlistProvider>
+      </CartProvider>
+    </AuthProvider>
+  );
+}
+
+=== FILE: ./frontend/src/lib/wishlist.jsx ===
+// Wishlist context: holds the logged-in user's saved (hearted) products.
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { api } from './api.js';
+import { useAuth } from './auth.jsx';
+
+const WishlistContext = createContext(null);
+
+export function WishlistProvider({ children }) {
+  const { user } = useAuth();
+  const [items, setItems] = useState([]);
+
+  const refresh = useCallback(() => {
+    if (!user) { setItems([]); return; }
+    api('/wishlist').then(setItems).catch(() => {});
+  }, [user]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const isWishlisted = (productId) => items.some((i) => i.product_id === productId);
+
+  const toggleWishlist = async (productId) => {
+    if (isWishlisted(productId)) {
+      await api(`/wishlist/${productId}`, { method: 'DELETE' });
+    } else {
+      await api('/wishlist', { method: 'POST', body: { product_id: productId } });
+    }
+    refresh();
+  };
+
+  return (
+    <WishlistContext.Provider value={{ items, count: items.length, isWishlisted, toggleWishlist, refresh }}>
+      {children}
+    </WishlistContext.Provider>
+  );
+}
+
+export const useWishlist = () => useContext(WishlistContext);
+
+=== FILE: ./frontend/src/lib/auth.jsx ===
+// Small auth context: current user + whether backend says they are admin.
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from './supabaseClient';
+import { api } from './api.js';
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isAdminLoading, setIsAdminLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Ask the backend who this user is (backend checks ADMIN_USER_IDS from its .env)
+  useEffect(() => {
+    if (loading) return; // wait until we know if there's a session at all
+    if (!user) { setIsAdmin(false); setIsAdminLoading(false); return; }
+    setIsAdminLoading(true);
+    api('/me')
+      .then((me) => setIsAdmin(!!me.is_admin))
+      .catch(() => setIsAdmin(false))
+      .finally(() => setIsAdminLoading(false));
+  }, [user, loading]);
+
+  const logout = () => supabase.auth.signOut();
+
+  return (
+    <AuthContext.Provider value={{ user, isAdmin, loading, isAdminLoading, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+  
+}
+
+export const useAuth = () => useContext(AuthContext);
+
+
+=== FILE: ./frontend/src/lib/cart.jsx ===
+// Cart context: holds the logged-in user's cart and functions to change it.
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { api } from './api.js';
+import { useAuth } from './auth.jsx';
+
+const CartContext = createContext(null);
+
+export function CartProvider({ children }) {
+  const { user } = useAuth();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(() => {
+    if (!user) { setItems([]); return; }
+    setLoading(true);
+    api('/cart').then(setItems).catch(() => {}).finally(() => setLoading(false));
+  }, [user]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const addToCart = async (product_id, size = '', color = '', quantity = 1) => {
+    await api('/cart', { method: 'POST', body: { product_id, size, color, quantity } });
+    refresh();
+  };
+
+  const updateQuantity = async (cartItemId, quantity) => {
+    await api(`/cart/${cartItemId}`, { method: 'PATCH', body: { quantity } });
+    refresh();
+  };
+
+  const removeFromCart = async (cartItemId) => {
+    await api(`/cart/${cartItemId}`, { method: 'DELETE' });
+    refresh();
+  };
+
+  const count = items.reduce((sum, i) => sum + i.quantity, 0);
+
+  return (
+    <CartContext.Provider value={{ items, loading, count, refresh, addToCart, updateQuantity, removeFromCart }}>
+      {children}
+    </CartContext.Provider>
+  );
+}
+
+export const useCart = () => useContext(CartContext);
+
+=== FILE: ./frontend/src/pages/ProductDetail.jsx ===
+import React, { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { api } from '../lib/api.js';
+import { Minus, Plus, MapPin, ShieldCheck, Heart, ShoppingCart } from 'lucide-react';
+import { useCart } from '../lib/cart.jsx';
+import { useWishlist } from '../lib/wishlist.jsx';
+
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
+}
+
+export default function ProductDetail() {
+  const { id } = useParams();
+  const { addToCart } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const [product, setProduct] = useState(null);
+  const [images, setImages] = useState([]);
+  const [activeImage, setActiveImage] = useState(0);
+  const [size, setSize] = useState('');
+  const [color, setColor] = useState('');
+  const [qty, setQty] = useState(1);
+  const [addresses, setAddresses] = useState([]);
+  const [addressId, setAddressId] = useState('');
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api(`/products/${id}`).then(setProduct).catch(() => {});
+    api(`/products/${id}/images`).then(setImages).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    api('/addresses').then((addrs) => {
+      setAddresses(addrs);
+      if (addrs.length > 0) setAddressId(addrs[0].id);
+    }).catch(() => {});
+  }, []);
+
+  if (!product) return <p className="max-w-4xl mx-auto px-4 py-10 text-ink/60">Loading…</p>;
+
+  const gallery = images.length > 0 ? images.map((i) => i.image_url) : (product.image_url ? [product.image_url] : []);
+
+  const placeOrder = async () => {
+    setError(''); setMsg(''); setBusy(true);
+    try {
+      if (product.sizes.length > 0 && !size) { setError('Please pick a size.'); setBusy(false); return; }
+      if (product.colors.length > 0 && !color) { setError('Please pick a color.'); setBusy(false); return; }
+      if (!addressId) { setError('Please add and select a shipping address first.'); setBusy(false); return; }
+
+      const res = await api('/orders', {
+        method: 'POST',
+        body: { product_id: product.id, size, color, quantity: qty, address_id: addressId }
+      });
+
+      const ok = await loadRazorpay();
+      if (!ok) throw new Error('Could not load Razorpay.');
+      const rzp = new window.Razorpay({
+        key: res.razorpay.key_id,
+        amount: res.razorpay.amount,
+        currency: 'INR',
+        name: 'Lakshmi Garments & Jewelry',
+        order_id: res.razorpay.razorpay_order_id,
+        handler: async (r) => {
+          try {
+            const done = await api('/payments/verify', {
+              method: 'POST',
+              body: {
+                internal_order_id: res.order.id,
+                razorpay_order_id: r.razorpay_order_id,
+                razorpay_payment_id: r.razorpay_payment_id,
+                razorpay_signature: r.razorpay_signature
+              }
+            });
+            setMsg(`Payment successful! ${done.products?.[0]?.sold_count ?? ''} pieces of "${product.name}" sold so far.`);
+          } catch (e) { setError(e.message); }
+        }
+      });
+      rzp.open();
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusy(false);
+  };
+
+  const handleAddToCart = async () => {
+    setError(''); setMsg('');
+    if (product.sizes.length > 0 && !size) { setError('Please pick a size.'); return; }
+    if (product.colors.length > 0 && !color) { setError('Please pick a color.'); return; }
+    try {
+      await addToCart(product.id, size, color, qty);
+      setMsg('Added to cart.');
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Gallery */}
+        <div>
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden aspect-square">
+            {gallery.length > 0 ? (
+              <img src={gallery[activeImage]} alt={product.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-ink/30">No image</div>
+            )}
+          </div>
+          {gallery.length > 1 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto">
+              {gallery.map((url, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveImage(i)}
+                  className={`w-16 h-16 rounded-lg overflow-hidden shrink-0 ring-2 ${i === activeImage ? 'ring-brand' : 'ring-transparent'}`}
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Details */}
+        <div>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-2xl font-serif font-bold text-ink">{product.name}</h2>
+            <button onClick={() => toggleWishlist(product.id)} className="shrink-0 p-1.5">
+              <Heart size={22} className={isWishlisted(product.id) ? 'fill-red-500 text-red-500' : 'text-ink/30'} />
+            </button>
+          </div>
+          <p className="text-ink/60 mt-1">{product.description}</p>
+          <p className="text-brand text-2xl font-bold mt-3">₹{product.price}</p>
+          <p className="text-ink/50 text-sm mt-1">
+            {product.stock} in stock · {product.sold_count} sold
+          </p>
+
+          <div className="mt-5 space-y-4">
+            {product.sizes.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-ink mb-1.5">Size</p>
+                <div className="flex flex-wrap gap-2">
+                  {product.sizes.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSize(s)}
+                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium ${s === size ? 'bg-brand text-white' : 'bg-white text-ink/70 shadow-sm'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {product.colors.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-ink mb-1.5">Color</p>
+                <div className="flex flex-wrap gap-2">
+                  {product.colors.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setColor(c)}
+                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium ${c === color ? 'bg-brand text-white' : 'bg-white text-ink/70 shadow-sm'}`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="text-sm font-medium text-ink mb-1.5">Quantity</p>
+              <div className="flex items-center gap-3 bg-white rounded-full shadow-sm w-fit px-2 py-1">
+                <button onClick={() => setQty(Math.max(1, qty - 1))} className="p-1.5 text-ink/60 hover:text-brand">
+                  <Minus size={16} />
+                </button>
+                <span className="w-6 text-center font-medium">{qty}</span>
+                <button onClick={() => setQty(Math.min(product.stock, qty + 1))} className="p-1.5 text-ink/60 hover:text-brand">
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-ink mb-1.5 flex items-center gap-1.5">
+                <MapPin size={15} /> Shipping Address
+              </p>
+              {addresses.length === 0 ? (
+                <p className="text-sm text-ink/60 bg-white rounded-xl shadow-sm p-3">
+                  No saved addresses. <Link to="/addresses" className="text-brand font-medium underline">Add one here</Link> before ordering.
+                </p>
+              ) : (
+                <select
+                  value={addressId}
+                  onChange={(e) => setAddressId(e.target.value)}
+                  className="w-full bg-white rounded-xl shadow-sm px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                >
+                  {addresses.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.addressee_name} — {a.address_line1}, {a.city} ({a.pin_code})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <p className="flex items-center gap-1.5 text-sm text-ink/50">
+              <ShieldCheck size={15} /> Secure online payment via Razorpay
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-brand text-brand font-semibold py-3 rounded-full hover:bg-brand/5 transition-colors disabled:opacity-50"
+              >
+                <ShoppingCart size={16} /> Add to Cart
+              </button>
+              <button
+                onClick={placeOrder}
+                disabled={busy || product.stock === 0}
+                className="flex-1 bg-brand text-white font-semibold py-3 rounded-full hover:bg-brand-dark transition-colors disabled:opacity-50"
+              >
+                {busy ? 'Placing…' : product.stock === 0 ? 'Sold out' : 'Buy Now'}
+              </button>
+            </div>
+
+            {msg && <p className="text-green-700 text-sm">{msg}</p>}
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/ResetPassword.jsx ===
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+
+export default function ResetPassword() {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  const navigate = useNavigate();
+
+  // Supabase's email link logs the user into a temporary recovery session
+  // automatically; this page just lets them set a new password.
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setError(''); setMsg('');
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) setError(error.message);
+    else {
+      setMsg('Password updated. Redirecting to login…');
+      setTimeout(() => navigate('/login'), 2000);
+    }
+  };
+
+  return (
+    <div className="page">
+      <h2>Reset Password</h2>
+      <form onSubmit={handleUpdate} className="form">
+        <input type="password" placeholder="New password (min 6 chars)" value={password}
+               onChange={(e) => setPassword(e.target.value)} required />
+        {error && <p className="error">{error}</p>}
+        {msg && <p className="success">{msg}</p>}
+        <button type="submit" className="btn">Update Password</button>
+      </form>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/Addresses.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../lib/api.js';
+import { MapPin, Trash2 } from 'lucide-react';
+
+const EMPTY = {
+  addressee_name: '', address_line1: '', address_line2: '',
+  city: '', state: '', pin_code: '', country: 'India'
+};
+
+export default function Addresses() {
+  const [addresses, setAddresses] = useState([]);
+  const [form, setForm] = useState(EMPTY);
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const load = () => api('/addresses').then(setAddresses).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const save = async () => {
+    setError(''); setMsg('');
+    if (!form.addressee_name || !form.address_line1 || !form.city || !form.state || !form.pin_code) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    try {
+      await api('/addresses', { method: 'POST', body: form });
+      setForm(EMPTY);
+      setMsg('Address saved.');
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const remove = async (id) => {
+    await api(`/addresses/${id}`, { method: 'DELETE' });
+    load();
+  };
+
+  const inputClass = "w-full bg-ivory rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-serif font-bold text-ink mb-4 flex items-center gap-2">
+        <MapPin size={20} /> Add a New Address
+      </h2>
+
+      <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3 mb-8">
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Addressee Name (who this is being delivered to)</label>
+          <input placeholder="e.g. Dixith Kumar" value={form.addressee_name} onChange={set('addressee_name')} className={inputClass} />
+        </div>
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Address Line 1 (House/Flat No., Building, Street)</label>
+          <input placeholder="e.g. 12, Green Apartments, MG Road" value={form.address_line1} onChange={set('address_line1')} className={inputClass} />
+        </div>
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Address Line 2 (Locality / Area — optional)</label>
+          <input placeholder="e.g. Jayanagar, Sector 4" value={form.address_line2} onChange={set('address_line2')} className={inputClass} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-ink/50 mb-1 block">City / Town</label>
+            <input placeholder="e.g. Bengaluru" value={form.city} onChange={set('city')} className={inputClass} />
+          </div>
+          <div>
+            <label className="text-xs text-ink/50 mb-1 block">State</label>
+            <input placeholder="e.g. Karnataka" value={form.state} onChange={set('state')} className={inputClass} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-ink/50 mb-1 block">PIN Code</label>
+            <input placeholder="e.g. 560041" value={form.pin_code} onChange={set('pin_code')} maxLength={6} className={inputClass} />
+          </div>
+          <div>
+            <label className="text-xs text-ink/50 mb-1 block">Country</label>
+            <input value={form.country} onChange={set('country')} className={inputClass} />
+          </div>
+        </div>
+
+        <button onClick={save} className="w-full bg-brand text-white font-semibold py-2.5 rounded-full hover:bg-brand-dark transition-colors">
+          Save Address
+        </button>
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {msg && <p className="text-green-700 text-sm">{msg}</p>}
+      </div>
+
+      <h2 className="text-lg font-serif font-semibold text-ink mb-3">Saved Addresses</h2>
+      {addresses.length === 0 && <p className="text-ink/50 text-sm">No saved addresses yet.</p>}
+      <div className="space-y-3">
+        {addresses.map((a) => (
+          <div key={a.id} className="bg-white rounded-2xl shadow-sm p-4 flex justify-between items-start">
+            <div className="text-sm">
+              <p className="font-semibold text-ink">{a.addressee_name}</p>
+              <p className="text-ink/70">{a.address_line1}</p>
+              {a.address_line2 && <p className="text-ink/70">{a.address_line2}</p>}
+              <p className="text-ink/70">{a.city}, {a.state} — {a.pin_code}</p>
+              <p className="text-ink/70">{a.country}</p>
+            </div>
+            <button onClick={() => remove(a.id)} className="text-red-500 hover:text-red-700 p-1">
+              <Trash2 size={17} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/MyOrders.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../lib/api.js';
+import { Package, MapPin } from 'lucide-react';
+
+const STATUS_STYLES = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  delivered: 'bg-green-100 text-green-800',
+  cancelled: 'bg-red-100 text-red-800',
+};
+
+export default function MyOrders() {
+  const [orders, setOrders] = useState([]);
+  useEffect(() => { api('/orders').then(setOrders).catch(() => {}); }, []);
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-serif font-bold text-ink mb-5 flex items-center gap-2">
+        <Package size={20} /> My Orders
+      </h2>
+
+      {orders.length === 0 && (
+        <p className="text-ink/50 text-center py-10">No orders yet.</p>
+      )}
+
+      <div className="space-y-4">
+        {orders.map((o) => (
+          <div key={o.id} className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-ink/50">{new Date(o.created_at).toLocaleString()}</p>
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[o.status] || 'bg-gray-100 text-gray-700'}`}>
+                {o.status}
+              </span>
+            </div>
+
+            <p className="text-ink font-semibold">₹{o.total} · Online Payment ({o.payment_status})</p>
+
+            <ul className="mt-2 text-sm text-ink/70 space-y-0.5">
+              {(o.items || []).map((it, i) => (
+                <li key={i}>{it.product_name} — {it.size} / {it.color} × {it.quantity} @ ₹{it.unit_price}</li>
+              ))}
+            </ul>
+
+            {o.shipping_address && (
+              <p className="mt-3 text-sm text-ink/60 flex items-start gap-1.5">
+                <MapPin size={14} className="mt-0.5 shrink-0" />
+                {o.shipping_address.addressee_name}, {o.shipping_address.address_line1},{' '}
+                {o.shipping_address.city}, {o.shipping_address.state} - {o.shipping_address.pin_code}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/admin/AdminOrders.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+import { ClipboardList, MapPin } from 'lucide-react';
+
+const STATUS_STYLES = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  delivered: 'bg-green-100 text-green-800',
+  cancelled: 'bg-red-100 text-red-800',
+};
+
+export default function AdminOrders() {
+  const [orders, setOrders] = useState([]);
+  const load = () => api('/orders/all').then(setOrders).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const setStatus = async (id, status) => {
+    await api(`/orders/${id}/status`, { method: 'PATCH', body: { status } });
+    load();
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-serif font-bold text-ink mb-5 flex items-center gap-2">
+        <ClipboardList size={20} /> All Orders
+      </h2>
+
+      <div className="space-y-4">
+        {orders.map((o) => (
+          <div key={o.id} className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-semibold text-ink">Order {o.id.slice(0, 8)}</p>
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[o.status] || 'bg-gray-100 text-gray-700'}`}>
+                {o.status}
+              </span>
+            </div>
+            <p className="text-sm text-ink/70">₹{o.total} · Online Payment · payment: {o.payment_status}</p>
+            <p className="text-sm text-ink/70">Customer: {o.user_email || o.user_id}</p>
+
+            <ul className="mt-2 text-sm text-ink/60 space-y-0.5">
+              {(o.items || []).map((it, i) => (
+                <li key={i}>{it.product_name} — {it.size} / {it.color} × {it.quantity}</li>
+              ))}
+            </ul>
+
+            {o.shipping_address && (
+              <p className="mt-2 text-sm text-ink/60 flex items-start gap-1.5">
+                <MapPin size={14} className="mt-0.5 shrink-0" />
+                {o.shipping_address.addressee_name}, {o.shipping_address.address_line1},{' '}
+                {o.shipping_address.city}, {o.shipping_address.state} - {o.shipping_address.pin_code}
+              </p>
+            )}
+
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => setStatus(o.id, 'confirmed')} className="text-xs font-medium bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-100">
+                Confirm
+              </button>
+              <button onClick={() => setStatus(o.id, 'delivered')} className="text-xs font-medium bg-green-50 text-green-700 px-3 py-1.5 rounded-full hover:bg-green-100">
+                Delivered
+              </button>
+              <button onClick={() => setStatus(o.id, 'cancelled')} className="text-xs font-medium bg-red-50 text-red-700 px-3 py-1.5 rounded-full hover:bg-red-100">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/admin/AdminCategories.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+import { Tag, Trash2 } from 'lucide-react';
+
+export default function AdminCategories() {
+  const [categories, setCategories] = useState([]);
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const load = () => api('/categories').then(setCategories).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const add = async () => {
+    setError(''); setMsg('');
+    if (!name.trim()) return;
+    try {
+      await api('/categories', { method: 'POST', body: { name: name.trim() } });
+      setName('');
+      setMsg('Category added.');
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm('Delete this category? Products in it will become uncategorized.')) return;
+    await api(`/categories/${id}`, { method: 'DELETE' });
+    load();
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-serif font-bold text-ink mb-4 flex items-center gap-2">
+        <Tag size={20} /> Manage Categories
+      </h2>
+
+      <div className="bg-white rounded-2xl shadow-sm p-5 flex gap-3 mb-8">
+        <input
+          placeholder="New category name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="flex-1 bg-ivory rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        />
+        <button onClick={add} className="bg-brand text-white font-semibold px-5 rounded-full hover:bg-brand-dark transition-colors">
+          Add
+        </button>
+      </div>
+      {error && <p className="text-red-600 text-sm -mt-6 mb-6">{error}</p>}
+      {msg && <p className="text-green-700 text-sm -mt-6 mb-6">{msg}</p>}
+
+      <h3 className="text-lg font-serif font-semibold text-ink mb-3">All Categories</h3>
+      <div className="space-y-2">
+        {categories.map((c) => (
+          <div key={c.id} className="bg-white rounded-xl shadow-sm px-4 py-3 flex justify-between items-center">
+            <span className="font-medium text-ink">{c.name}</span>
+            <button onClick={() => remove(c.id)} className="text-red-500 hover:text-red-700 p-1">
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/admin/ShopSettings.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+import { Store } from 'lucide-react';
+
+export default function ShopSettings() {
+  const [form, setForm] = useState({ shop_name: '', address: '', phone: '', logo_url: '', owner_photo_url: '' });
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => { api('/settings').then(setForm).catch(() => {}); }, []);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const save = async () => {
+    await api('/settings', { method: 'PUT', body: form });
+    setMsg('Shop details saved.');
+  };
+
+  const inputClass = "w-full bg-ivory rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
+
+  return (
+    <div className="max-w-xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-serif font-bold text-ink mb-4 flex items-center gap-2">
+        <Store size={20} /> Shop Details
+      </h2>
+
+      <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Shop Name</label>
+          <input placeholder="Shop name" value={form.shop_name} onChange={set('shop_name')} className={inputClass} />
+        </div>
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Address</label>
+          <textarea placeholder="Address" value={form.address} onChange={set('address')} className={inputClass + " min-h-[80px]"} />
+        </div>
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Phone</label>
+          <input placeholder="Phone" value={form.phone} onChange={set('phone')} className={inputClass} />
+        </div>
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Logo URL</label>
+          <input placeholder="Logo URL" value={form.logo_url} onChange={set('logo_url')} className={inputClass} />
+        </div>
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Owner Photo URL (shown on homepage banner)</label>
+          <input placeholder="https://..." value={form.owner_photo_url} onChange={set('owner_photo_url')} className={inputClass} />
+        </div>
+
+        <button onClick={save} className="w-full bg-brand text-white font-semibold py-2.5 rounded-full hover:bg-brand-dark transition-colors">
+          Save
+        </button>
+        {msg && <p className="text-green-700 text-sm">{msg}</p>}
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/admin/AdminProducts.jsx ===
+import React, { useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+import { Package, Trash2, Pencil, X, Upload } from 'lucide-react';
+
+const EMPTY = {
+  name: '', description: '', category_id: '', price: 0, stock: 0,
+  sizes: '', colors: '', image_url: ''
+};
+
+const ALLOWED = ['image/jpeg', 'image/png', 'image/gif', 'image/tiff'];
+
+export default function AdminProducts() {
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState(null);
+  const [msg, setMsg] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
+  const [productImages, setProductImages] = useState({});
+  const [imageError, setImageError] = useState('');
+
+  const load = () => api('/products').then(setProducts).catch(() => {});
+
+  useEffect(() => {
+    load();
+    api('/categories').then(setCategories).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    products.forEach((p) => loadImages(p.id));
+  }, [products]);
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const handleFileSelect = (e) => {
+    setImageError('');
+    const files = Array.from(e.target.files);
+    const invalid = files.find((f) => !ALLOWED.includes(f.type));
+    if (invalid) {
+      setImageError(`"${invalid.name}" is not a supported format. Use JPEG, PNG, GIF, or TIFF.`);
+      e.target.value = '';
+      return;
+    }
+    setImageFiles((prev) => [...prev, ...files]);
+    e.target.value = '';
+  };
+
+  const uploadImages = async (productId) => {
+    if (imageFiles.length === 0) return;
+    const formData = new FormData();
+    imageFiles.forEach((f) => formData.append('files', f));
+
+    const { supabase } = await import('../../lib/supabaseClient.js');
+    const { data: { session } } = await supabase.auth.getSession();
+    const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+    const res = await fetch(`${BASE}/api/products/${productId}/images`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Image upload failed');
+    }
+    setImageFiles([]);
+    loadImages(productId);
+  };
+
+  const loadImages = (productId) => {
+    api(`/products/${productId}/images`).then((imgs) =>
+      setProductImages((prev) => ({ ...prev, [productId]: imgs }))
+    );
+  };
+
+  const deleteImage = async (productId, imageId) => {
+    await api(`/products/${productId}/images/${imageId}`, { method: 'DELETE' });
+    loadImages(productId);
+  };
+
+  const save = async () => {
+    const body = {
+      ...form,
+      category_id: form.category_id || null,
+      price: Number(form.price),
+      stock: Number(form.stock),
+      sizes: form.sizes.split(',').map((s) => s.trim()).filter(Boolean),
+      colors: form.colors.split(',').map((s) => s.trim()).filter(Boolean)
+    };
+    let productId = editingId;
+    if (editingId) {
+      await api(`/products/${editingId}`, { method: 'PATCH', body });
+      setMsg('Product updated.');
+    } else {
+      const created = await api('/products', { method: 'POST', body });
+      productId = created.id;
+      setMsg('Product added.');
+    }
+    try {
+      await uploadImages(productId);
+    } catch (e) {
+      setImageError(e.message);
+    }
+    setForm(EMPTY); setEditingId(null); load();
+  };
+  
+  const edit = (p) => {
+    setForm({
+      ...p,
+      category_id: p.category_id || '',
+      sizes: (p.sizes || []).join(', '),
+      colors: (p.colors || []).join(', ')
+    });
+    setEditingId(p.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm('Delete this product?')) return;
+    await api(`/products/${id}`, { method: 'DELETE' }); load();
+  };
+
+  const categoryName = (id) => categories.find((c) => c.id === id)?.name || 'Uncategorized';
+
+  const inputClass = "w-full bg-ivory rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-serif font-bold text-ink mb-4 flex items-center gap-2">
+        <Package size={20} /> {editingId ? 'Edit Product' : 'Add Product'}
+      </h2>
+
+      <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3 mb-8">
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Product Name</label>
+          <input placeholder="e.g. Silk Saree - Red" value={form.name} onChange={set('name')} className={inputClass} />
+        </div>
+
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Description</label>
+          <textarea placeholder="Short description shown on the product page" value={form.description} onChange={set('description')} className={inputClass + " min-h-[70px]"} />
+        </div>
+
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Category</label>
+          <select value={form.category_id} onChange={set('category_id')} className={inputClass}>
+            <option value="">-- No category --</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-ink/50 mb-1 block">Price (₹)</label>
+            <input type="number" placeholder="e.g. 1499" value={form.price} onChange={set('price')} className={inputClass} />
+          </div>
+          <div>
+            <label className="text-xs text-ink/50 mb-1 block">Stock</label>
+            <input type="number" placeholder="e.g. 20" value={form.stock} onChange={set('stock')} className={inputClass} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-ink/50 mb-1 block">Sizes (optional)</label>
+            <input placeholder="e.g. XL, M, S" value={form.sizes} onChange={set('sizes')} className={inputClass} />
+          </div>
+          <div>
+            <label className="text-xs text-ink/50 mb-1 block">Colors (optional)</label>
+            <input placeholder="e.g. Red, Blue" value={form.colors} onChange={set('colors')} className={inputClass} />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Image URL (legacy fallback — optional)</label>
+          <input placeholder="https://..." value={form.image_url} onChange={set('image_url')} className={inputClass} />
+        </div>
+
+        <div>
+          <label className="text-xs text-ink/50 mb-1 block">Product Images (JPEG, PNG, GIF, or TIFF — up to 6, 5MB each)</label>
+          <input id="product-image-input" type="file" accept=".jpg,.jpeg,.png,.gif,.tif,.tiff" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
+          <button
+            type="button"
+            onClick={() => document.getElementById('product-image-input').click()}
+            className="flex items-center gap-2 bg-ivory text-ink font-medium text-sm px-4 py-2.5 rounded-xl hover:shadow-sm transition-shadow"
+          >
+            <Upload size={16} /> Choose Images
+          </button>
+          {imageError && <p className="text-red-600 text-sm mt-1">{imageError}</p>}
+          {imageFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {imageFiles.map((f, i) => (
+                <span key={i} className="flex items-center gap-1.5 bg-ivory text-ink text-xs px-3 py-1.5 rounded-full">
+                  {f.name}
+                  <button type="button" onClick={() => setImageFiles(imageFiles.filter((_, idx) => idx !== i))} className="text-ink/50 hover:text-red-600">
+                    <X size={13} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button onClick={save} className="w-full bg-brand text-white font-semibold py-2.5 rounded-full hover:bg-brand-dark transition-colors">
+          {editingId ? 'Update' : 'Add'} Product
+        </button>
+        {editingId && (
+          <button onClick={() => { setEditingId(null); setForm(EMPTY); }} className="w-full text-ink/60 text-sm py-1">
+            Cancel edit
+          </button>
+        )}
+        {msg && <p className="text-green-700 text-sm text-center">{msg}</p>}
+      </div>
+
+      <h3 className="text-lg font-serif font-semibold text-ink mb-3">All Products</h3>
+      <div className="space-y-4">
+        {products.map((p) => (
+          <div key={p.id} className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-semibold text-ink">{p.name} — ₹{p.price}</h3>
+                <p className="text-sm text-ink/50">stock {p.stock} · {p.sold_count} sold</p>
+                <p className="text-sm text-ink/50">{categoryName(p.category_id)}</p>
+                <p className="text-sm text-ink/50">{p.sizes.join(' / ') || 'No sizes'} · {p.colors.join(' / ') || 'No colors'}</p>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => edit(p)} className="text-ink/50 hover:text-brand p-1.5">
+                  <Pencil size={16} />
+                </button>
+                <button onClick={() => remove(p.id)} className="text-red-500 hover:text-red-700 p-1.5">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+
+            {productImages[p.id]?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {productImages[p.id].map((img) => (
+                  <div key={img.id} className="relative">
+                    <img src={img.image_url} alt="" className="w-16 h-16 object-cover rounded-lg" />
+                    <button
+                      onClick={() => deleteImage(p.id, img.id)}
+                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/ForgotPassword.jsx ===
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+
+export default function ForgotPassword() {
+  const [email, setEmail] = useState('');
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setError(''); setMsg('');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+    if (error) setError(error.message);
+    else setMsg('Check your email for a password reset link.');
+  };
+
+  return (
+    <div className="page">
+      <h2>Forgot Password</h2>
+      <form onSubmit={handleReset} className="form">
+        <input type="email" placeholder="Email" value={email}
+               onChange={(e) => setEmail(e.target.value)} required />
+        {error && <p className="error">{error}</p>}
+        {msg && <p className="success">{msg}</p>}
+        <button type="submit" className="btn">Send Reset Link</button>
+      </form>
+      <p><Link to="/login">Back to Login</Link></p>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/Login.jsx ===
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+import { useAuth } from '../lib/auth.jsx';
+import { Mail, Lock } from 'lucide-react';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) navigate('/');
+  }, [user, navigate]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    else navigate('/');
+  };
+
+  const loginWithGoogle = async () => {
+    setError('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) setError(error.message);
+  };
+
+  return (
+    <div className="max-w-sm mx-auto px-4 py-14">
+      <div className="bg-white rounded-2xl shadow-sm p-7">
+        <h2 className="text-2xl font-serif font-bold text-ink text-center mb-6">Welcome Back</h2>
+
+        <form onSubmit={handleLogin} className="space-y-3">
+          <div className="relative">
+            <Mail size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/40" />
+            <input type="email" placeholder="Email" value={email}
+                   onChange={(e) => setEmail(e.target.value)} required
+                   className="w-full bg-ivory rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+          </div>
+          <div className="relative">
+            <Lock size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/40" />
+            <input type="password" placeholder="Password" value={password}
+                   onChange={(e) => setPassword(e.target.value)} required
+                   className="w-full bg-ivory rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+          </div>
+
+          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+
+          <button type="submit" className="w-full bg-brand text-white font-semibold py-2.5 rounded-full hover:bg-brand-dark transition-colors">
+            Login
+          </button>
+        </form>
+
+        <div className="flex items-center gap-3 my-4">
+          <div className="h-px bg-ink/10 flex-1" />
+          <span className="text-ink/40 text-xs">OR</span>
+          <div className="h-px bg-ink/10 flex-1" />
+        </div>
+
+        <button onClick={loginWithGoogle}
+                className="w-full flex items-center justify-center gap-2 bg-ivory text-ink font-medium py-2.5 rounded-full shadow-sm hover:shadow transition-shadow">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.71-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.95H.96C.35 6.17 0 7.54 0 9s.35 2.83.96 4.05l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+          Continue with Google
+        </button>
+
+        <p className="text-center text-sm mt-5">
+          <Link to="/forgot-password" className="text-brand underline">Forgot password?</Link>
+        </p>
+        <p className="text-center text-sm text-ink/60 mt-2">
+          No account? <Link to="/register" className="text-brand font-medium underline">Register</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/Wishlist.jsx ===
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useWishlist } from '../lib/wishlist.jsx';
+import { useCart } from '../lib/cart.jsx';
+import { Heart, ShoppingCart } from 'lucide-react';
+
+export default function Wishlist() {
+  const { items, toggleWishlist } = useWishlist();
+  const { addToCart } = useCart();
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-serif font-bold text-ink mb-5 flex items-center gap-2">
+        <Heart size={20} /> My Wishlist
+      </h2>
+
+      {items.length === 0 ? (
+        <p className="text-ink/50 text-center py-10">
+          Nothing saved yet. <Link to="/" className="text-brand underline">Browse products</Link>
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {items.map((i) => (
+            <div key={i.id} className="relative bg-white rounded-2xl shadow-sm overflow-hidden">
+              <button
+                onClick={() => toggleWishlist(i.product.id)}
+                className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1.5 shadow-sm"
+              >
+                <Heart size={16} className="fill-red-500 text-red-500" />
+              </button>
+              <Link to={`/product/${i.product.id}`}>
+                {i.product.image_url && (
+                  <img src={i.product.image_url} alt={i.product.name} className="w-full h-36 object-cover" />
+                )}
+                <div className="p-3">
+                  <h3 className="font-medium text-ink text-sm truncate">{i.product.name}</h3>
+                  <p className="text-brand font-bold">₹{i.product.price}</p>
+                </div>
+              </Link>
+              {i.product.sizes?.length === 0 && i.product.colors?.length === 0 && i.product.stock > 0 && (
+                <button
+                  onClick={() => addToCart(i.product.id, '', '', 1)}
+                  className="w-full flex items-center justify-center gap-1.5 bg-brand/10 text-brand text-xs font-semibold py-2 hover:bg-brand/20 transition-colors"
+                >
+                  <ShoppingCart size={13} /> Add to Cart
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/Cart.jsx ===
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useCart } from '../lib/cart.jsx';
+import { api } from '../lib/api.js';
+import { Minus, Plus, Trash2, ShoppingCart, MapPin } from 'lucide-react';
+
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
+}
+
+export default function Cart() {
+  const { items, loading, updateQuantity, removeFromCart, refresh } = useCart();
+  const [addresses, setAddresses] = useState([]);
+  const [addressId, setAddressId] = useState('');
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    api('/addresses').then((addrs) => {
+      setAddresses(addrs);
+      if (addrs.length > 0) setAddressId(addrs[0].id);
+    }).catch(() => {});
+  }, []);
+
+  const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+
+  const checkout = async () => {
+    setError(''); setMsg(''); setBusy(true);
+    try {
+      if (!addressId) { setError('Please add and select a shipping address first.'); setBusy(false); return; }
+
+      const res = await api(`/orders/checkout-cart?address_id=${addressId}`, { method: 'POST' });
+
+      const ok = await loadRazorpay();
+      if (!ok) throw new Error('Could not load Razorpay.');
+      const rzp = new window.Razorpay({
+        key: res.razorpay.key_id,
+        amount: res.razorpay.amount,
+        currency: 'INR',
+        name: 'Lakshmi Garments & Jewelry',
+        order_id: res.razorpay.razorpay_order_id,
+        handler: async (r) => {
+          try {
+            await api('/payments/verify', {
+              method: 'POST',
+              body: {
+                internal_order_id: res.order.id,
+                razorpay_order_id: r.razorpay_order_id,
+                razorpay_payment_id: r.razorpay_payment_id,
+                razorpay_signature: r.razorpay_signature
+              }
+            });
+            setMsg('Payment successful! Your order has been placed.');
+            refresh();
+            setTimeout(() => navigate('/my-orders'), 1500);
+          } catch (e) { setError(e.message); }
+        }
+      });
+      rzp.open();
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusy(false);
+  };
+
+  if (loading) return <p className="max-w-3xl mx-auto px-4 py-10 text-ink/60">Loading…</p>;
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6">
+      <h2 className="text-xl font-serif font-bold text-ink mb-5 flex items-center gap-2">
+        <ShoppingCart size={20} /> My Cart
+      </h2>
+
+      {items.length === 0 ? (
+        <p className="text-ink/50 text-center py-10">
+          Your cart is empty. <Link to="/" className="text-brand underline">Browse products</Link>
+        </p>
+      ) : (
+        <>
+          <div className="space-y-3 mb-6">
+            {items.map((i) => (
+              <div key={i.id} className="bg-white rounded-2xl shadow-sm p-4 flex gap-4 items-center">
+                {i.product.image_url && (
+                  <img src={i.product.image_url} alt="" className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-ink truncate">{i.product.name}</p>
+                  <p className="text-sm text-ink/50">
+                    {[i.size, i.color].filter(Boolean).join(' / ') || 'No variant'}
+                  </p>
+                  <p className="text-brand font-bold">₹{i.product.price}</p>
+                </div>
+                <div className="flex items-center gap-2 bg-ivory rounded-full px-2 py-1">
+                  <button onClick={() => updateQuantity(i.id, Math.max(1, i.quantity - 1))} className="p-1 text-ink/60 hover:text-brand">
+                    <Minus size={14} />
+                  </button>
+                  <span className="w-5 text-center text-sm font-medium">{i.quantity}</span>
+                  <button onClick={() => updateQuantity(i.id, Math.min(i.product.stock, i.quantity + 1))} className="p-1 text-ink/60 hover:text-brand">
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <button onClick={() => removeFromCart(i.id)} className="text-red-500 hover:text-red-700 p-1.5 shrink-0">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-ink mb-1.5 flex items-center gap-1.5">
+                <MapPin size={15} /> Shipping Address
+              </p>
+              {addresses.length === 0 ? (
+                <p className="text-sm text-ink/60">
+                  No saved addresses. <Link to="/addresses" className="text-brand font-medium underline">Add one here</Link> before checking out.
+                </p>
+              ) : (
+                <select
+                  value={addressId}
+                  onChange={(e) => setAddressId(e.target.value)}
+                  className="w-full bg-ivory rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                >
+                  {addresses.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.addressee_name} — {a.address_line1}, {a.city} ({a.pin_code})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-lg font-bold text-ink pt-2 border-t border-ink/10">
+              <span>Total</span>
+              <span>₹{total}</span>
+            </div>
+
+            <button
+              onClick={checkout}
+              disabled={busy}
+              className="w-full bg-brand text-white font-semibold py-3 rounded-full hover:bg-brand-dark transition-colors disabled:opacity-50"
+            >
+              {busy ? 'Placing…' : 'Checkout & Pay'}
+            </button>
+
+            {msg && <p className="text-green-700 text-sm">{msg}</p>}
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/Register.jsx ===
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient.js';
+import { Mail, Lock } from 'lucide-react';
+
+export default function Register() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) setError(error.message);
+    else navigate('/');
+  };
+
+  const registerWithGoogle = async () => {
+    setError('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) setError(error.message);
+  };
+
+  return (
+    <div className="max-w-sm mx-auto px-4 py-14">
+      <div className="bg-white rounded-2xl shadow-sm p-7">
+        <h2 className="text-2xl font-serif font-bold text-ink text-center mb-6">Create Account</h2>
+
+        <form onSubmit={handleRegister} className="space-y-3">
+          <div className="relative">
+            <Mail size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/40" />
+            <input type="email" placeholder="Email" value={email}
+                   onChange={(e) => setEmail(e.target.value)} required
+                   className="w-full bg-ivory rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+          </div>
+          <div className="relative">
+            <Lock size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/40" />
+            <input type="password" placeholder="Password (min 6 chars)" value={password}
+                   onChange={(e) => setPassword(e.target.value)} required
+                   className="w-full bg-ivory rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+          </div>
+
+          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+
+          <button type="submit" className="w-full bg-brand text-white font-semibold py-2.5 rounded-full hover:bg-brand-dark transition-colors">
+            Register
+          </button>
+        </form>
+
+        <div className="flex items-center gap-3 my-4">
+          <div className="h-px bg-ink/10 flex-1" />
+          <span className="text-ink/40 text-xs">OR</span>
+          <div className="h-px bg-ink/10 flex-1" />
+        </div>
+
+        <button onClick={registerWithGoogle}
+                className="w-full flex items-center justify-center gap-2 bg-ivory text-ink font-medium py-2.5 rounded-full shadow-sm hover:shadow transition-shadow">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.71-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.95H.96C.35 6.17 0 7.54 0 9s.35 2.83.96 4.05l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+          Continue with Google
+        </button>
+
+        <p className="text-center text-sm text-ink/60 mt-5">
+          Have an account? <Link to="/login" className="text-brand font-medium underline">Login</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./frontend/src/pages/Home.jsx ===
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../lib/api.js';
+import { Search, ChevronDown, ChevronUp, Heart, ShoppingCart } from 'lucide-react';
+import { useAuth } from '../lib/auth.jsx';
+import { useCart } from '../lib/cart.jsx';
+import { useWishlist } from '../lib/wishlist.jsx';
+
+export default function Home() {
+  const [settings, setSettings] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [productImages, setProductImages] = useState({});
+  const [activeCategory, setActiveCategory] = useState(null);
+  const [search, setSearch] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
+
+  useEffect(() => {
+    api('/settings').then(setSettings).catch(() => {});
+    api('/products').then((prods) => {
+      setProducts(prods);
+      prods.forEach((p) => {
+        api(`/products/${p.id}/images`).then((imgs) =>
+          setProductImages((prev) => ({ ...prev, [p.id]: imgs }))
+        );
+      });
+    }).catch(() => {});
+    api('/categories').then(setCategories).catch(() => {});
+  }, []);
+
+  const filtered = products.filter((p) => {
+    const matchesCategory = !activeCategory || p.category_id === activeCategory;
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      {settings && (
+        <header className="flex flex-col sm:flex-row bg-white rounded-2xl shadow-sm overflow-hidden mb-6">
+          {settings.owner_photo_url && (
+            <div className="w-full h-40 sm:w-80 sm:h-[150px] order-first shrink-0 overflow-hidden">
+              <img
+                src={settings.owner_photo_url}
+                alt=""
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-4 p-5 flex-1">
+            <img src={settings.logo_url} alt="logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-2xl shrink-0" />
+            <div className="text-left">
+              <h1 className="text-lg sm:text-xl font-serif font-bold text-brand">{settings.shop_name}</h1>
+              <p className="text-ink/70 text-xs sm:text-sm">{settings.address}</p>
+              <p className="text-ink/70 text-xs sm:text-sm">Phone: {settings.phone}</p>
+            </div>
+          </div>
+        </header>
+      )}
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/40" />
+          <input
+            placeholder="Search products…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-white rounded-full pl-10 pr-4 py-2.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          />
+        </div>
+        <button
+          className="flex items-center justify-center gap-1.5 text-brand font-medium text-sm bg-white rounded-full px-4 py-2.5 shadow-sm whitespace-nowrap"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          Categories {sidebarOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+      </div>
+
+      {sidebarOpen && (
+        <div className="flex flex-wrap gap-2 mb-5">
+          <button
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${!activeCategory ? 'bg-brand text-white' : 'bg-white text-ink/70 shadow-sm'}`}
+            onClick={() => setActiveCategory(null)}
+          >
+            All
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${activeCategory === c.id ? 'bg-brand text-white' : 'bg-white text-ink/70 shadow-sm'}`}
+              onClick={() => setActiveCategory(c.id)}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <h2 className="text-lg font-serif font-semibold text-ink mb-3">Products</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {filtered.map((p) => (
+          <div key={p.id} className="relative bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+            {user && (
+              <button
+                onClick={(e) => { e.preventDefault(); toggleWishlist(p.id); }}
+                className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1.5 shadow-sm"
+              >
+                <Heart size={16} className={isWishlisted(p.id) ? 'fill-red-500 text-red-500' : 'text-ink/40'} />
+              </button>
+            )}
+            <Link to={`/product/${p.id}`}>
+              {(productImages[p.id]?.[0]?.image_url || p.image_url) && (
+                <img
+                  src={productImages[p.id]?.[0]?.image_url || p.image_url}
+                  alt={p.name}
+                  className="w-full h-36 object-cover"
+                />
+              )}
+              <div className="p-3">
+                <h3 className="font-medium text-ink text-sm truncate">{p.name}</h3>
+                <p className="text-brand font-bold">₹{p.price}</p>
+                <p className="text-ink/50 text-xs">
+                  {p.stock > 0 ? `${p.stock} in stock` : 'Sold out'} · {p.sold_count} sold
+                </p>
+              </div>
+            </Link>
+            {user && p.sizes.length === 0 && p.colors.length === 0 && p.stock > 0 && (
+              <button
+                onClick={() => addToCart(p.id, '', '', 1)}
+                className="w-full flex items-center justify-center gap-1.5 bg-brand/10 text-brand text-xs font-semibold py-2 hover:bg-brand/20 transition-colors"
+              >
+                <ShoppingCart size={13} /> Add to Cart
+              </button>
+            )}
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <p className="col-span-full text-center text-ink/50 py-8">No products found.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+=== FILE: ./backend/app/routers/auth.py ===
+from fastapi import APIRouter, Depends
+from app.deps import get_current_user
+from app.config import ADMIN_USER_IDS
+
+router = APIRouter()
+
+
+@router.get("/api/me")
+def me(user: dict = Depends(get_current_user)):
+    """Frontend calls this to know if the logged-in user is an admin."""
+    return {"user_id": user.id, "email": user.email, "is_admin": user.id in ADMIN_USER_IDS}
+
+
+=== FILE: ./backend/app/routers/cart.py ===
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase
+from app.deps import get_current_user
+
+router = APIRouter()
+
+
+class CartItemIn(BaseModel):
+    product_id: str
+    size: str = ""
+    color: str = ""
+    quantity: int = 1
+
+
+class CartQtyPatch(BaseModel):
+    quantity: int
+
+
+def _cart_with_products(rows: list) -> list:
+    """Attach current product info (name, price, stock, image) to each cart row
+    so the frontend doesn't need a second round-trip per item."""
+    out = []
+    for r in rows:
+        prod_rows = supabase.table("products").select("*").eq("id", r["product_id"]).execute().data
+        if not prod_rows:
+            continue  # product was deleted; skip stale cart row
+        prod = prod_rows[0]
+        out.append({
+            **r,
+            "product": {
+                "id": prod["id"],
+                "name": prod["name"],
+                "price": prod["price"],
+                "stock": prod["stock"],
+                "image_url": prod["image_url"],
+            }
+        })
+    return out
+
+
+@router.get("/api/cart")
+def get_cart(user: dict = Depends(get_current_user)):
+    rows = supabase.table("cart_items").select("*") \
+        .eq("user_id", user.id).order("created_at").execute().data
+    return _cart_with_products(rows)
+
+
+@router.post("/api/cart")
+def add_to_cart(item: CartItemIn, user: dict = Depends(get_current_user)):
+    if item.quantity < 1:
+        raise HTTPException(400, "Quantity must be at least 1.")
+
+    prod_rows = supabase.table("products").select("*").eq("id", item.product_id).execute().data
+    if not prod_rows:
+        raise HTTPException(404, "Product not found.")
+    prod = prod_rows[0]
+    if prod["sizes"] and item.size not in prod["sizes"]:
+        raise HTTPException(400, "Please select a valid size.")
+    if prod["colors"] and item.color not in prod["colors"]:
+        raise HTTPException(400, "Please select a valid color.")
+
+    # Same product+size+color already in cart? bump quantity instead of duplicating.
+    existing = supabase.table("cart_items").select("*") \
+        .eq("user_id", user.id).eq("product_id", item.product_id) \
+        .eq("size", item.size).eq("color", item.color).execute().data
+
+    if existing:
+        row = existing[0]
+        new_qty = row["quantity"] + item.quantity
+        updated = supabase.table("cart_items").update({"quantity": new_qty}) \
+            .eq("id", row["id"]).execute().data[0]
+        return updated
+
+    created = supabase.table("cart_items").insert({
+        "user_id": user.id,
+        "product_id": item.product_id,
+        "size": item.size,
+        "color": item.color,
+        "quantity": item.quantity,
+    }).execute().data[0]
+    return created
+
+
+@router.patch("/api/cart/{cart_item_id}")
+def update_cart_quantity(cart_item_id: str, body: CartQtyPatch, user: dict = Depends(get_current_user)):
+    if body.quantity < 1:
+        raise HTTPException(400, "Quantity must be at least 1.")
+    rows = supabase.table("cart_items").select("id").eq("id", cart_item_id).eq("user_id", user.id).execute().data
+    if not rows:
+        raise HTTPException(404, "Cart item not found.")
+    updated = supabase.table("cart_items").update({"quantity": body.quantity}) \
+        .eq("id", cart_item_id).execute().data[0]
+    return updated
+
+
+@router.delete("/api/cart/{cart_item_id}")
+def remove_from_cart(cart_item_id: str, user: dict = Depends(get_current_user)):
+    rows = supabase.table("cart_items").select("id").eq("id", cart_item_id).eq("user_id", user.id).execute().data
+    if not rows:
+        raise HTTPException(404, "Cart item not found.")
+    supabase.table("cart_items").delete().eq("id", cart_item_id).execute()
+    return {"deleted": True}
+
+=== FILE: ./backend/app/routers/payments.py ===
+import hmac
+import hashlib
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase
+from app.deps import get_current_user
+from app.config import RAZORPAY_KEY_SECRET
+
+router = APIRouter()
+
+
+class VerifyIn(BaseModel):
+    internal_order_id: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@router.post("/api/payments/verify")
+def verify_payment(v: VerifyIn, user: dict = Depends(get_current_user)):
+    # 1. Check the signature really came from Razorpay
+    expected = hmac.new(
+        RAZORPAY_KEY_SECRET.encode(),
+        f"{v.razorpay_order_id}|{v.razorpay_payment_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, v.razorpay_signature):
+        raise HTTPException(400, "Payment verification failed.")
+
+    # 2. Load our order and make sure it belongs to this user & matches
+    rows = supabase.table("orders").select("*").eq("id", v.internal_order_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Order not found")
+    order = rows[0]
+    if order["user_id"] != user.id:
+        raise HTTPException(403, "Not your order.")
+    if order["razorpay_order_id"] != v.razorpay_order_id:
+        raise HTTPException(400, "Razorpay order mismatch.")
+    if order["payment_status"] == "paid":
+        return _result(order)  # already verified (idempotent)
+
+    # 3. Mark paid, then take stock & count the sale
+    order = supabase.table("orders").update({
+        "payment_status": "paid",
+        "status": "confirmed",
+    }).eq("id", order["id"]).execute().data[0]
+
+    items = supabase.table("order_items").select("*") \
+        .eq("order_id", order["id"]).execute().data
+
+    updated_products = []
+    for item in items:
+        prod_rows = supabase.table("products").select("*").eq("id", item["product_id"]).execute().data
+        if not prod_rows:
+            continue  # product was deleted since ordering; skip stock update for it
+        prod = prod_rows[0]
+        prod = supabase.table("products").update({
+            "stock": max(prod["stock"] - item["quantity"], 0),
+            "sold_count": prod["sold_count"] + item["quantity"],
+        }).eq("id", prod["id"]).execute().data[0]
+        updated_products.append(prod)
+
+    # If this order came from the cart, clear those items now that payment succeeded.
+    supabase.table("cart_items").delete().eq("user_id", user.id).execute()
+
+    return _result(order, updated_products)
+
+
+def _result(order: dict, products: list = None):
+    out = {"order": order}
+    if products:
+        out["products"] = [
+            {"id": p["id"], "name": p["name"], "sold_count": p["sold_count"], "stock": p["stock"]}
+            for p in products
+        ]
+    return out
+
+
+=== FILE: ./backend/app/routers/categories.py ===
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase
+from app.deps import require_admin
+
+router = APIRouter()
+
+
+class CategoryIn(BaseModel):
+    name: str
+
+
+@router.get("/api/categories")
+def list_categories():
+    return supabase.table("categories").select("*").order("name").execute().data
+
+
+@router.post("/api/categories")
+def create_category(c: CategoryIn, admin: dict = Depends(require_admin)):
+    existing = supabase.table("categories").select("*").eq("name", c.name).execute().data
+    if existing:
+        raise HTTPException(400, "Category already exists.")
+    return supabase.table("categories").insert({"name": c.name}).execute().data[0]
+
+
+@router.delete("/api/categories/{category_id}")
+def delete_category(category_id: str, admin: dict = Depends(require_admin)):
+    # Uncategorize any products using this category first.
+    supabase.table("products").update({"category_id": None}).eq("category_id", category_id).execute()
+    supabase.table("categories").delete().eq("id", category_id).execute()
+    return {"deleted": True}
+
+=== FILE: ./backend/app/routers/__init__.py ===
+
+
+=== FILE: ./backend/app/routers/products.py ===
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional, List
+from app.db import supabase
+from app.deps import get_current_user, require_admin
+
+router = APIRouter()
+
+
+class ProductIn(BaseModel):
+    name: str
+    description: str = ""
+    category_id: Optional[str] = None
+    price: float
+    stock: int = 0
+    sizes: List[str] = []
+    colors: List[str] = []
+    image_url: str = ""
+
+
+class ProductPatch(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category_id: Optional[str] = None
+    price: Optional[float] = None
+    stock: Optional[int] = None
+    sizes: Optional[List[str]] = None
+    colors: Optional[List[str]] = None
+    image_url: Optional[str] = None
+
+@router.get("/api/products")
+def list_products():
+    return supabase.table("products").select("*").order("created_at", desc=True).execute().data
+
+
+@router.get("/api/products/{product_id}")
+def get_product(product_id: str, ):
+    rows = supabase.table("products").select("*").eq("id", product_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Product not found")
+    return rows[0]
+
+
+@router.post("/api/products")
+def create_product(p: ProductIn, admin: dict = Depends(require_admin)):
+    return supabase.table("products").insert(p.model_dump()).execute().data[0]
+
+
+@router.patch("/api/products/{product_id}")
+def update_product(product_id: str, p: ProductPatch, admin: dict = Depends(require_admin)):
+    """Admin can change price and stock (and anything else) after creation."""
+    updates = {k: v for k, v in p.model_dump().items() if v is not None}
+    rows = supabase.table("products").update(updates).eq("id", product_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Product not found.")
+    return rows[0]
+
+
+@router.delete("/api/products/{product_id}")
+def delete_product(product_id: str, admin: dict = Depends(require_admin)):
+    supabase.table("products").delete().eq("id", product_id).execute()
+    return {"deleted": True}
+
+
+=== FILE: ./backend/app/routers/orders.py ===
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase, razorpay_client
+from app.deps import get_current_user, require_admin
+from app.config import RAZORPAY_KEY_ID
+
+router = APIRouter()
+
+
+class OrderIn(BaseModel):
+    product_id: str
+    size: str = ""
+    color: str = ""
+    quantity: int = 1
+    address_id: str
+
+class StatusPatch(BaseModel):
+    status: str  # pending | confirmed | delivered | cancelled
+
+
+def _order_with_items(order_row: dict) -> dict:
+    items = supabase.table("order_items").select("*").eq("order_id", order_row["id"]).execute().data
+    return {**order_row, "items": items}
+
+
+
+
+@router.get("/api/orders")
+def my_orders(user: dict = Depends(get_current_user)):
+    rows = supabase.table("orders").select("*") \
+        .eq("user_id", user.id).order("created_at", desc=True).execute().data
+    return [_order_with_items(r) for r in rows]
+
+
+@router.get("/api/orders/all")
+def all_orders(admin: dict = Depends(require_admin)):
+    return [_order_with_items(r) for r in
+            supabase.table("orders").select("*").order("created_at", desc=True).execute().data]
+
+
+@router.patch("/api/orders/{order_id}/status")
+def update_status(order_id: str, body: StatusPatch, admin: dict = Depends(require_admin)):
+    if body.status not in ("pending", "confirmed", "delivered", "cancelled"):
+        raise HTTPException(400, "Invalid status.")
+    rows = supabase.table("orders") \
+        .update({"status": body.status}).eq("id", order_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Order not found.")
+    return rows[0]
+
+
+@router.post("/api/orders")
+def place_order(o: OrderIn, user: dict = Depends(get_current_user)):
+    rows = supabase.table("products").select("*").eq("id", o.product_id).execute().data
+    if not rows:
+        raise HTTPException(404, "Product not found")
+    product = rows[0]
+
+    addr_rows = supabase.table("addresses").select("*") \
+        .eq("id", o.address_id).eq("user_id", user.id).execute().data
+    if not addr_rows:
+        raise HTTPException(400, "Please select a valid shipping address.")
+    address = addr_rows[0]
+
+    if product["sizes"] and o.size not in product["sizes"]:
+        raise HTTPException(400, "Please select a valid size.")
+    if product["colors"] and o.color not in product["colors"]:
+        raise HTTPException(400, "Please select a valid color.")
+    if o.quantity < 1:
+        raise HTTPException(400, "Quantity must be at least 1.")
+    if product["stock"] < o.quantity:
+        raise HTTPException(400, f"Only {product['stock']} left in stock.")
+
+    total = float(product["price"]) * o.quantity
+
+    rzp = razorpay_client.order.create({
+        "amount": int(total * 100),
+        "currency": "INR",
+        "receipt": f"order_{user.id[:8]}",
+    })
+    rzp_order_id = rzp["id"]
+
+    order = supabase.table("orders").insert({
+        "user_id": user.id,
+        "user_email": user.email or "",
+        "total": total,
+        "payment_method": "razorpay",
+        "payment_status": "unpaid",
+        "status": "pending",
+        "razorpay_order_id": rzp_order_id,
+        "shipping_address": {
+            "addressee_name": address["addressee_name"],
+            "address_line1": address["address_line1"],
+            "address_line2": address["address_line2"],
+            "city": address["city"],
+            "state": address["state"],
+            "pin_code": address["pin_code"],
+            "country": address["country"],
+        },
+    }).execute().data[0]
+
+    supabase.table("order_items").insert({
+        "order_id": order["id"],
+        "product_id": product["id"],
+        "product_name": product["name"],
+        "size": o.size,
+        "color": o.color,
+        "quantity": o.quantity,
+        "unit_price": float(product["price"]),
+    }).execute()
+
+    return {
+        "order": _order_with_items(order),
+        "razorpay": {
+            "key_id": RAZORPAY_KEY_ID,
+            "amount": int(total * 100),
+            "razorpay_order_id": rzp_order_id,
+        },
+    }
+
+
+# cart checkout 
+@router.post("/api/orders/checkout-cart")
+def checkout_cart(address_id: str, user: dict = Depends(get_current_user)):
+    cart_rows = supabase.table("cart_items").select("*").eq("user_id", user.id).execute().data
+    if not cart_rows:
+        raise HTTPException(400, "Your cart is empty.")
+
+    addr_rows = supabase.table("addresses").select("*") \
+        .eq("id", address_id).eq("user_id", user.id).execute().data
+    if not addr_rows:
+        raise HTTPException(400, "Please select a valid shipping address.")
+    address = addr_rows[0]
+
+    # Validate every item and build the order_items we'll insert, before creating anything.
+    line_items = []
+    total = 0.0
+    for c in cart_rows:
+        prod_rows = supabase.table("products").select("*").eq("id", c["product_id"]).execute().data
+        if not prod_rows:
+            raise HTTPException(400, "One of the items in your cart no longer exists.")
+        prod = prod_rows[0]
+        if prod["stock"] < c["quantity"]:
+            raise HTTPException(400, f"Only {prod['stock']} of \"{prod['name']}\" left in stock.")
+        line_total = float(prod["price"]) * c["quantity"]
+        total += line_total
+        line_items.append({
+            "product_id": prod["id"],
+            "product_name": prod["name"],
+            "size": c["size"],
+            "color": c["color"],
+            "quantity": c["quantity"],
+            "unit_price": float(prod["price"]),
+        })
+
+    rzp = razorpay_client.order.create({
+        "amount": int(total * 100),
+        "currency": "INR",
+        "receipt": f"cart_{user.id[:8]}",
+    })
+    rzp_order_id = rzp["id"]
+
+    order = supabase.table("orders").insert({
+        "user_id": user.id,
+        "user_email": user.email or "",
+        "total": total,
+        "payment_method": "razorpay",
+        "payment_status": "unpaid",
+        "status": "pending",
+        "razorpay_order_id": rzp_order_id,
+        "shipping_address": {
+            "addressee_name": address["addressee_name"],
+            "address_line1": address["address_line1"],
+            "address_line2": address["address_line2"],
+            "city": address["city"],
+            "state": address["state"],
+            "pin_code": address["pin_code"],
+            "country": address["country"],
+        },
+    }).execute().data[0]
+
+    for li in line_items:
+        supabase.table("order_items").insert({"order_id": order["id"], **li}).execute()
+
+    return {
+        "order": _order_with_items(order),
+        "razorpay": {
+            "key_id": RAZORPAY_KEY_ID,
+            "amount": int(total * 100),
+            "razorpay_order_id": rzp_order_id,
+        },
+    }
+
+=== FILE: ./backend/app/routers/wishlist.py ===
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase
+from app.deps import get_current_user
+
+router = APIRouter()
+
+
+class WishlistIn(BaseModel):
+    product_id: str
+
+
+@router.get("/api/wishlist")
+def get_wishlist(user: dict = Depends(get_current_user)):
+    rows = supabase.table("wishlist_items").select("*") \
+        .eq("user_id", user.id).order("created_at", desc=True).execute().data
+    out = []
+    for r in rows:
+        prod_rows = supabase.table("products").select("*").eq("id", r["product_id"]).execute().data
+        if not prod_rows:
+            continue
+        out.append({**r, "product": prod_rows[0]})
+    return out
+
+
+@router.post("/api/wishlist")
+def add_to_wishlist(item: WishlistIn, user: dict = Depends(get_current_user)):
+    existing = supabase.table("wishlist_items").select("id") \
+        .eq("user_id", user.id).eq("product_id", item.product_id).execute().data
+    if existing:
+        return existing[0]  # already wishlisted, no-op
+    created = supabase.table("wishlist_items").insert({
+        "user_id": user.id, "product_id": item.product_id
+    }).execute().data[0]
+    return created
+
+
+@router.delete("/api/wishlist/{product_id}")
+def remove_from_wishlist(product_id: str, user: dict = Depends(get_current_user)):
+    supabase.table("wishlist_items").delete() \
+        .eq("user_id", user.id).eq("product_id", product_id).execute()
+    return {"deleted": True}
+
+=== FILE: ./backend/app/routers/images.py ===
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from app.db import supabase
+from app.deps import require_admin
+
+router = APIRouter()
+
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "tif", "tiff"}
+ALLOWED_MIME_TYPES = {
+    "image/jpeg", "image/png", "image/gif", "image/tiff"
+}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB per image
+MAX_IMAGES_PER_PRODUCT = 6
+
+
+def _validate_file(file: UploadFile, contents: bytes):
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(400, f"'{file.filename}' is not a supported image type. Allowed: JPG, PNG, GIF, TIFF.")
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(400, f"'{file.filename}' has an invalid file type.")
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(400, f"'{file.filename}' exceeds the 5MB size limit.")
+    return ext
+
+
+@router.post("/api/products/{product_id}/images")
+async def upload_images(product_id: str, files: list[UploadFile] = File(...),
+                         admin: dict = Depends(require_admin)):
+    existing = supabase.table("product_images").select("id").eq("product_id", product_id).execute().data
+    if len(existing) + len(files) > MAX_IMAGES_PER_PRODUCT:
+        raise HTTPException(400, f"Maximum {MAX_IMAGES_PER_PRODUCT} images allowed per product.")
+
+    uploaded = []
+    for file in files:
+        contents = await file.read()
+        ext = _validate_file(file, contents)
+        path = f"{product_id}/{uuid.uuid4()}.{ext}"
+
+        supabase.storage.from_("product-images").upload(
+            path, contents, {"content-type": file.content_type}
+        )
+        public_url = supabase.storage.from_("product-images").get_public_url(path)
+
+        row = supabase.table("product_images").insert({
+            "product_id": product_id, "image_url": public_url
+        }).execute().data[0]
+        uploaded.append(row)
+
+    return uploaded
+
+
+@router.get("/api/products/{product_id}/images")
+def list_images(product_id: str):
+    return supabase.table("product_images").select("*") \
+        .eq("product_id", product_id).order("created_at").execute().data
+
+
+@router.delete("/api/products/{product_id}/images/{image_id}")
+def delete_image(product_id: str, image_id: str, admin: dict = Depends(require_admin)):
+    supabase.table("product_images").delete().eq("id", image_id).execute()
+    return {"deleted": True}
+
+=== FILE: ./backend/app/routers/settings.py ===
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from typing import Optional
+from app.db import supabase
+from app.deps import require_admin
+
+router = APIRouter()
+
+class SettingsIn(BaseModel):
+    shop_name: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    logo_url: Optional[str] = None
+    owner_photo_url: Optional[str] = None
+
+
+@router.get("/api/settings")
+def get_settings():
+    rows = supabase.table("shop_settings").select("*").eq("id", 1).execute().data
+    return rows[0] if rows else {
+        "shop_name": "Lakshmi Garments and Jewelry",
+        "address": "Main Bazaar Road, Your City",
+        "phone": "+91 90000 00000",
+        "logo_url": "https://media.base44.com/images/public/6aae82cb01188ac2783c82e6/ac99a0ac8_generated_image.png",
+        "owner_photo_url": "https://xotszjnrbvjbyhtkofxe.supabase.co/storage/v1/object/sign/owner-image/WhatsApp%20Image%202026-09-21%20at%2014.19.28.jpeg?token=eyJraWQiOiJlYTkwZDY5OS0zYzNkLTQzYTQtOGIzYS03ZTU5NDIxNWFjMmYiLCJhbGciOiJIUzUxMiJ9.eyJ1cmwiOiJvd25lci1pbWFnZS9XaGF0c0FwcCBJbWFnZSAyMDI2LTA5LTIxIGF0IDE0LjE5LjI4LmpwZWciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzkwMTUzMzA0LCJleHAiOjE4MjE2ODkzMDR9.XhnIStxLt0fVYTN-oc-ZnavxzDABmb9CkhNoJpjE1XaSFxqtoHwkm0rsxRZRV3AG1ZlRL_GzmmyDGvFVyT6pTw",
+    }
+
+
+@router.put("/api/settings")
+def update_settings(s: SettingsIn, admin: dict = Depends(require_admin)):
+    updates = {k: v for k, v in s.model_dump().items() if v is not None}
+    supabase.table("shop_settings").update(updates).eq("id", 1).execute()
+    return get_settings()
+
+
+=== FILE: ./backend/app/routers/addresses.py ===
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from app.db import supabase
+from app.deps import get_current_user
+
+router = APIRouter()
+
+
+class AddressIn(BaseModel):
+    addressee_name: str
+    address_line1: str
+    address_line2: str = ""
+    city: str
+    state: str
+    pin_code: str
+    country: str = "India"
+
+
+@router.get("/api/addresses")
+def list_addresses(user: dict = Depends(get_current_user)):
+    return supabase.table("addresses").select("*") \
+        .eq("user_id", user.id).order("created_at", desc=True).execute().data
+
+
+@router.post("/api/addresses")
+def create_address(a: AddressIn, user: dict = Depends(get_current_user)):
+    return supabase.table("addresses").insert({
+        **a.model_dump(), "user_id": user.id
+    }).execute().data[0]
+
+
+@router.delete("/api/addresses/{address_id}")
+def delete_address(address_id: str, user: dict = Depends(get_current_user)):
+    # Only allow deleting your own address.
+    rows = supabase.table("addresses").select("id").eq("id", address_id).eq("user_id", user.id).execute().data
+    if not rows:
+        raise HTTPException(404, "Address not found.")
+    supabase.table("addresses").delete().eq("id", address_id).execute()
+    return {"deleted": True}
+
+=== FILE: ./backend/app/db.py ===
+from supabase import create_client
+from app.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, \
+    RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
+import razorpay
+
+# Service-role client: bypasses RLS. Only the backend may use it.
+supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Razorpay client (test mode keys)
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+
+=== FILE: ./backend/app/deps.py ===
+from fastapi import Header, HTTPException, Depends
+from app.db import supabase
+from app.config import ADMIN_USER_IDS
+
+
+async def get_current_user(authorization: str = Header(...)) -> dict:
+    """Verifies the Supabase JWT the frontend sends as 'Authorization: Bearer …'."""
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        resp = supabase.auth.get_user(token)
+        return resp.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired session. Please log in again.")
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Only UUIDs listed in .env ADMIN_USER_IDS pass."""
+    if user.id not in ADMIN_USER_IDS:
+        raise HTTPException(status_code=403, detail="Admins only.")
+    return user
+
+
+=== FILE: ./backend/app/config.py ===
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# Comma-separated admin UUIDs from .env → e.g. ADMIN_USER_IDS=uuid1,uuid2
+ADMIN_USER_IDS = {
+    u.strip() for u in os.getenv("ADMIN_USER_IDS", "").split(",") if u.strip()
+}
+
+
+=== FILE: ./backend/app/__init__.py ===
+
+
+=== FILE: ./backend/app/main.py ===
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import FRONTEND_URL
+from app.routers import auth, products, orders, payments, settings, categories, images, addresses, cart, wishlist
+
+app = FastAPI(title="Lakshmi Garments & Jewelry API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_URL],     # your frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(products.router)
+app.include_router(orders.router)
+app.include_router(payments.router)
+app.include_router(settings.router)
+app.include_router(categories.router)
+app.include_router(images.router)
+app.include_router(addresses.router)
+app.include_router(cart.router)
+app.include_router(wishlist.router)
+
+@app.get("/api/health")
+def health():
+    return {"ok": True}
+
+
+=== FILE: ./backend/schema.sql ===
+-- ============================================================
+-- LAKSHMI GARMENTS & JEWELRY — FULL SCHEMA (current, Sept 2026)
+-- ============================================================
+
+create table if not exists products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text default '',
+  category text default 'garments',
+  price numeric not null,
+  stock integer not null default 0,
+  sizes text[] default '{}',
+  colors text[] default '{}',
+  sold_count integer not null default 0,
+  image_url text default '',
+  created_at timestamptz default now(),
+  category_id uuid
+);
+
+create table if not exists categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_at timestamptz default now()
+);
+
+alter table products
+  drop constraint if exists products_category_id_fkey,
+  add constraint products_category_id_fkey
+    foreign key (category_id) references categories(id) on delete set null;
+
+create table if not exists product_images (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid,
+  image_url text not null,
+  created_at timestamptz default now()
+);
+
+alter table product_images
+  drop constraint if exists product_images_product_id_fkey,
+  add constraint product_images_product_id_fkey
+    foreign key (product_id) references products(id) on delete cascade;
+
+create table if not exists orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  user_email text default '',
+  total numeric not null,
+  payment_method text not null,
+  payment_status text not null,
+  status text not null default 'pending',
+  razorpay_order_id text,
+  created_at timestamptz default now(),
+  shipping_address jsonb
+);
+
+create table if not exists order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid,
+  product_id uuid,
+  product_name text,
+  size text,
+  color text,
+  quantity integer not null,
+  unit_price numeric not null
+);
+
+alter table order_items
+  drop constraint if exists order_items_order_id_fkey,
+  add constraint order_items_order_id_fkey
+    foreign key (order_id) references orders(id) on delete cascade;
+
+alter table order_items
+  drop constraint if exists order_items_product_id_fkey,
+  add constraint order_items_product_id_fkey
+    foreign key (product_id) references products(id) on delete set null;
+
+create table if not exists addresses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  addressee_name text not null,
+  address_line1 text not null,
+  address_line2 text default '',
+  city text not null,
+  state text not null,
+  pin_code text not null,
+  country text not null default 'India',
+  created_at timestamptz default now()
+);
+
+create table if not exists shop_settings (
+  id int primary key default 1,
+  shop_name text default 'Lakshmi Garments and Jewelry',
+  address text default 'Main Bazaar Road, Your City',
+  phone text default '+91 90000 00000',
+  logo_url text default 'https://media.base44.com/images/public/6aae82cb01188ac2783c82e6/ac99a0ac8_generated_image.png',
+  hero_image_url text default ''
+);
+
+insert into shop_settings (id) values (1) on conflict (id) do nothing;
+
+alter table products enable row level security;
+alter table categories enable row level security;
+alter table product_images enable row level security;
+alter table orders enable row level security;
+alter table order_items enable row level security;
+alter table addresses enable row level security;
+alter table shop_settings enable row level security;
+
+=== FILE: ./setup.py ===
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def is_separator(line):
+    s = line.strip()
+    return len(s) >= 20 and set(s) == {"-"}
+
+
+def finalize(buf):
+    # drop trailing separator/blank lines, then leading separator lines
+    while buf and (buf[-1].strip() == "" or is_separator(buf[-1])):
+        buf.pop()
+    while buf and is_separator(buf[0]):
+        buf.pop(0)
+    text = "\n".join(buf).rstrip() + "\n"
+    if text.strip() == "(empty file)":
+        return ""
+    return text
+
+
+def write(folder, rel, content):
+    # paths inside the txt start with "frontend/" or "backend/" — strip it
+    prefix = folder + "/"
+    if rel.startswith(prefix):
+        rel = rel[len(prefix):]
+    full = os.path.join(HERE, folder, rel)
+    os.makedirs(os.path.dirname(full) or HERE, exist_ok=True)
+    with open(full, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+    print("  created  " + os.path.join(folder, rel).replace("\\", "/"))
+    return 1
+
+
+def extract(txt_name, folder):
+    path = os.path.join(HERE, txt_name)
+    if not os.path.exists(path):
+        print("ERROR: " + txt_name + " not found next to setup.py")
+        sys.exit(1)
+    with open(path, encoding="utf-8-sig") as f:
+        lines = f.read().splitlines()
+    current, buf, count = None, [], 0
+    for line in lines:
+        if line.startswith("FILE: "):
+            if current is not None:
+                count += write(folder, current, finalize(buf))
+            current, buf = line[6:].strip(), []
+        elif line.strip() == "END OF FILES":
+            if current is not None:
+                count += write(folder, current, finalize(buf))
+            current, buf = None, []
+        elif current is not None:
+            buf.append(line)
+    if current is not None:
+        count += write(folder, current, finalize(buf))
+    return count
+
+
+if __name__ == "__main__":
+    print("Extracting frontend...")
+    n1 = extract("frontend.txt", "frontend")
+    print("Extracting backend...")
+    n2 = extract("backend.txt", "backend")
+    print("")
+    print("Done: " + str(n1) + " files -> app/frontend, "
+          + str(n2) + " files -> app/backend")
+    print("Next: 1) fill app/frontend/.env and app/backend/.env")
+    print("      2) run app/backend/schema.sql in Supabase SQL Editor")
+    print("      3) start backend:  cd backend && python -m venv venv")
+    print("         (Windows: venv\\Scripts\\activate | macOS/Linux: source venv/bin/activate)")
+    print("         pip install -r requirements.txt")
+    print("         uvicorn app.main:app --reload --port 8000")
+    print("      4) start frontend: cd ../frontend && npm install && npm run dev")
+
+
