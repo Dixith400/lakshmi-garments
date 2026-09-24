@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
-import { Menu, X, Package, MapPin, Tag, ClipboardList, Store, LogIn, LogOut, ShoppingCart, Heart } from 'lucide-react';
+import { Menu, X, Package, MapPin, Tag, ClipboardList, Store, LogIn, LogOut, ShoppingCart, Heart, HelpCircle } from 'lucide-react';
 import { useCart } from '../lib/cart.jsx';
 import { useWishlist } from '../lib/wishlist.jsx';
 
@@ -31,6 +31,7 @@ export default function Navbar() {
 
           <div className="hidden md:flex flex-wrap gap-6 items-center">
             <Link to="/" className={linkClass}><Store size={16} /> Home</Link>
+            <Link to="/help" className={linkClass}><HelpCircle size={16} /> Help</Link>
             {user && <Link to="/my-orders" className={linkClass}><ClipboardList size={16} /> My Orders</Link>}
             {user && <Link to="/addresses" className={linkClass}><MapPin size={16} /> Addresses</Link>}
             {isAdmin && <Link to="/admin/products" className={linkClass}><Package size={16} /> Products</Link>}
@@ -62,6 +63,7 @@ export default function Navbar() {
         {menuOpen && (
           <div className="md:hidden bg-brand-dark rounded-b-2xl flex flex-col gap-4 px-5 py-4">
             <Link to="/" className={linkClass} onClick={() => setMenuOpen(false)}><Store size={16} /> Home</Link>
+            <Link to="/help" className={linkClass} onClick={() => setMenuOpen(false)}><HelpCircle size={16} /> Help</Link>
             {user && <Link to="/my-orders" className={linkClass} onClick={() => setMenuOpen(false)}><ClipboardList size={16} /> My Orders</Link>}
             {user && <Link to="/addresses" className={linkClass} onClick={() => setMenuOpen(false)}><MapPin size={16} /> Addresses</Link>}
             {isAdmin && <Link to="/admin/products" className={linkClass} onClick={() => setMenuOpen(false)}><Package size={16} /> Products</Link>}

@@ -54,14 +54,23 @@ export default function Wishlist() {
                     </p>
                   </div>
                 </Link>
-                {i.product.sizes?.length === 0 && i.product.colors?.length === 0 && i.product.stock > 0 && (
+              {i.product.stock > 0 && (
+                i.product.sizes?.length === 0 && i.product.colors?.length === 0 ? (
                   <button
                     onClick={() => addToCart(i.product.id, '', '', 1)}
                     className="w-full flex items-center justify-center gap-1.5 bg-brand/10 text-brand text-xs font-semibold py-2 hover:bg-brand/20 transition-colors"
                   >
                     <ShoppingCart size={13} /> Add to Cart
                   </button>
-                )}
+                ) : (
+                  <Link
+                    to={`/product/${i.product.id}`}
+                    className="w-full flex items-center justify-center gap-1.5 bg-brand/10 text-brand text-xs font-semibold py-2 hover:bg-brand/20 transition-colors"
+                  >
+                    <ShoppingCart size={13} /> Add to Cart
+                  </Link>
+                )
+              )}
               </div>
             );
           })}

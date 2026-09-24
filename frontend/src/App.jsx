@@ -18,6 +18,7 @@ import AdminCategories from './pages/admin/AdminCategories.jsx';
 import Addresses from './pages/Addresses.jsx';
 import Cart from './pages/Cart.jsx';
 import Wishlist from './pages/Wishlist.jsx';
+import Help from './pages/Help.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -54,7 +55,8 @@ export default function App() {
         <Route path="/addresses" element={<Protected><Addresses /></Protected>} />
         <Route path="/cart" element={<Protected><Cart /></Protected>} />
         <Route path="/wishlist" element={<Protected><Wishlist /></Protected>} />
-     
+        <Route path="/help" element={<Help />} />
+        
       </Routes>
       </WishlistProvider>
       </CartProvider>

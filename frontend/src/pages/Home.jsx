@@ -62,6 +62,33 @@ export default function Home() {
         </header>
       )}
 
+      {products.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-serif font-semibold text-ink mb-3">New Arrivals</h2>
+          <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory">
+            {products.slice(0, 8).map((p) => (
+              <Link
+                key={p.id}
+                to={`/product/${p.id}`}
+                className="snap-start shrink-0 w-40 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+              >
+                {(productImages[p.id]?.[0]?.image_url || p.image_url) && (
+                  <img
+                    src={productImages[p.id]?.[0]?.image_url || p.image_url}
+                    alt={p.name}
+                    className="w-full h-40 object-cover"
+                  />
+                )}
+                <div className="p-3">
+                  <h3 className="font-medium text-ink text-sm truncate">{p.name}</h3>
+                  <p className="text-brand font-bold">₹{p.price}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/40" />
@@ -128,13 +155,22 @@ export default function Home() {
                 </p>
               </div>
             </Link>
-            {user && p.sizes.length === 0 && p.colors.length === 0 && p.stock > 0 && (
-              <button
-                onClick={() => addToCart(p.id, '', '', 1)}
-                className="w-full flex items-center justify-center gap-1.5 bg-brand/10 text-brand text-xs font-semibold py-2 hover:bg-brand/20 transition-colors"
-              >
-                <ShoppingCart size={13} /> Add to Cart
-              </button>
+            {user && p.stock > 0 && (
+              p.sizes.length === 0 && p.colors.length === 0 ? (
+                <button
+                  onClick={(e) => { e.preventDefault(); addToCart(p.id, '', '', 1); }}
+                  className="w-full flex items-center justify-center gap-1.5 bg-brand/10 text-brand text-xs font-semibold py-2 hover:bg-brand/20 transition-colors"
+                >
+                  <ShoppingCart size={13} /> Add to Cart
+                </button>
+              ) : (
+                <Link
+                  to={`/product/${p.id}`}
+                  className="w-full flex items-center justify-center gap-1.5 bg-brand/10 text-brand text-xs font-semibold py-2 hover:bg-brand/20 transition-colors"
+                >
+                  <ShoppingCart size={14} /> Add to Cart
+                </Link>
+              )
             )}
           </div>
         ))}
