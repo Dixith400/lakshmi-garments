@@ -17,6 +17,14 @@ class OrderIn(BaseModel):
 class StatusPatch(BaseModel):
     status: str  # pending | confirmed | delivered | cancelled
 
+def _product_image(product_id: str, fallback: str = "") -> str:
+    """First uploaded gallery image for a product, falling back to the
+    product's legacy image_url field, or '' if neither exists."""
+    imgs = supabase.table("product_images").select("image_url") \
+        .eq("product_id", product_id).order("created_at").limit(1).execute().data
+    if imgs:
+        return imgs[0]["image_url"]
+    return fallback or ""
 
 def _order_with_items(order_row: dict) -> dict:
     items = supabase.table("order_items").select("*").eq("order_id", order_row["id"]).execute().data
@@ -107,6 +115,7 @@ def place_order(o: OrderIn, user: dict = Depends(get_current_user)):
         "color": o.color,
         "quantity": o.quantity,
         "unit_price": float(product["price"]),
+        "image_url": _product_image(product["id"], product.get("image_url", "")),
     }).execute()
 
     return {
@@ -151,6 +160,7 @@ def checkout_cart(address_id: str, user: dict = Depends(get_current_user)):
             "color": c["color"],
             "quantity": c["quantity"],
             "unit_price": float(prod["price"]),
+            "image_url": _product_image(prod["id"], prod.get("image_url", "")),
         })
 
     rzp = razorpay_client.order.create({

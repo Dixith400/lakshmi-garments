@@ -35,9 +35,16 @@ export default function MyOrders() {
 
             <p className="text-ink font-semibold">₹{o.total} · Online Payment ({o.payment_status})</p>
 
-            <ul className="mt-2 text-sm text-ink/70 space-y-0.5">
+            <ul className="mt-3 space-y-2">
               {(o.items || []).map((it, i) => (
-                <li key={i}>{it.product_name} — {it.size} / {it.color} × {it.quantity} @ ₹{it.unit_price}</li>
+                <li key={i} className="flex items-center gap-3">
+                  {it.image_url && (
+                    <img src={it.image_url} alt={it.product_name} className="w-12 h-12 object-cover rounded-lg shrink-0" />
+                  )}
+                  <span className="text-sm text-ink/70">
+                    {it.product_name} — {it.size} / {it.color} × {it.quantity} @ ₹{it.unit_price}
+                  </span>
+                </li>
               ))}
             </ul>
 
