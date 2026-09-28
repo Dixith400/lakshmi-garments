@@ -1,0 +1,8 @@
+commands for running
+
+cd ~/Lakshmi_Garments_jewelry/app/backend
+source venv/bin/activate
+python -m uvicorn app.main:app --reload --port 8000
+
+cd ~/Lakshmi_Garments_jewelry/app/frontend
+npm run dev
