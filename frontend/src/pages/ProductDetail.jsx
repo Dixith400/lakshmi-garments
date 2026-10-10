@@ -18,7 +18,7 @@ function loadRazorpay() {
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const { addToCart } = useCart();
+  const { addToCart, refresh: refreshCart } = useCart();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const [product, setProduct] = useState(null);
   const [images, setImages] = useState([]);
@@ -70,7 +70,7 @@ export default function ProductDetail() {
         order_id: res.razorpay.razorpay_order_id,
         handler: async (r) => {
           try {
-            const done = await api('/payments/verify', {
+            await api('/payments/verify', {
               method: 'POST',
               body: {
                 internal_order_id: res.order.id,
@@ -79,7 +79,9 @@ export default function ProductDetail() {
                 razorpay_signature: r.razorpay_signature
               }
             });
-            setMsg(`Payment successful! ${done.products?.[0]?.sold_count ?? ''} pieces of "${product.name}" sold so far.`);
+            setMsg('Payment successful! Your order is confirmed.');
+            refreshCart();
+            api(`/products/${id}`).then(setProduct).catch(() => {});
           } catch (e) { setError(e.message); }
         }
       });

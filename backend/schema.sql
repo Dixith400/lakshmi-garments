@@ -62,6 +62,7 @@ create table if not exists order_items (
   color text,
   quantity integer not null,
   unit_price numeric not null
+  image_url text default ''
 );
 
 alter table order_items
@@ -93,7 +94,8 @@ create table if not exists shop_settings (
   address text default 'Main Bazaar Road, Your City',
   phone text default '+91 90000 00000',
   logo_url text default 'https://media.base44.com/images/public/6aae82cb01188ac2783c82e6/ac99a0ac8_generated_image.png',
-  owner_photo_url text default ''
+  owner_photo_url text default '',
+  guide_video_url text default ''
 );
 
 insert into shop_settings (id) values (1) on conflict (id) do nothing;
@@ -136,3 +138,6 @@ alter table wishlist_items
 alter table cart_items enable row level security;
 alter table wishlist_items enable row level security;
 
+-- ===== CHANGES (add new ones at the bottom, then run in Supabase) =====
+alter table order_items   add column if not exists image_url text default '';
+alter table shop_settings add column if not exists guide_video_url text default '';

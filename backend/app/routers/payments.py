@@ -17,25 +17,28 @@ class VerifyIn(BaseModel):
 
 
 def _mark_paid_and_reduce_stock(order: dict) -> tuple[dict, list]:
-    """Marks an order paid, reduces stock, increments sold_count, clears the
-    user's cart. Safe to call more than once (idempotent) — if the order is
-    already paid it just returns it unchanged with no product updates."""
-    if order["payment_status"] == "paid":
-        return order, []
-
-    order = supabase.table("orders").update({
+    # Atomic claim: only matches if the order is still unpaid,
+    # so exactly one caller (verify OR webhook) gets a row back.
+    claimed = supabase.table("orders").update({
         "payment_status": "paid",
         "status": "confirmed",
-    }).eq("id", order["id"]).execute().data[0]
+    }).eq("id", order["id"]).eq("payment_status", "unpaid").execute().data
 
+    if not claimed:  # the other path already processed it
+        fresh = supabase.table("orders").select("*").eq("id", order["id"]).execute().data
+        return (fresh[0] if fresh else order), []
+
+    order = claimed[0]
     items = supabase.table("order_items").select("*") \
         .eq("order_id", order["id"]).execute().data
 
     updated_products = []
     for item in items:
+        if not item["product_id"]:
+            continue
         prod_rows = supabase.table("products").select("*").eq("id", item["product_id"]).execute().data
         if not prod_rows:
-            continue  # product was deleted since ordering; skip stock update for it
+            continue
         prod = prod_rows[0]
         prod = supabase.table("products").update({
             "stock": max(prod["stock"] - item["quantity"], 0),
@@ -43,8 +46,10 @@ def _mark_paid_and_reduce_stock(order: dict) -> tuple[dict, list]:
         }).eq("id", prod["id"]).execute().data[0]
         updated_products.append(prod)
 
-    # If this order came from the cart, clear those items now that payment succeeded.
-    supabase.table("cart_items").delete().eq("user_id", order["user_id"]).execute()
+        # Remove only the lines that were actually bought, not the whole cart
+        supabase.table("cart_items").delete() \
+            .eq("user_id", order["user_id"]).eq("product_id", item["product_id"]) \
+            .eq("size", item.get("size") or "").eq("color", item.get("color") or "").execute()
 
     return order, updated_products
 

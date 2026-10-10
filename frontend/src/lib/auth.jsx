@@ -11,14 +11,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAdminLoading, setIsAdminLoading] = useState(true);
 
-  useEffect(() => {
+    useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null);
       setLoading(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
+      const next = session?.user ?? null;
+      // keep the same object if it's the same person, so effects don't re-run
+      setUser((prev) => (prev?.id === next?.id ? prev : next));
     });
     return () => sub.subscription.unsubscribe();
   }, []);

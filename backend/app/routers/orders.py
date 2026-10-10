@@ -82,7 +82,7 @@ def place_order(o: OrderIn, user: dict = Depends(get_current_user)):
     total = float(product["price"]) * o.quantity
 
     rzp = razorpay_client.order.create({
-        "amount": int(total * 100),
+        "amount": _paise(total),
         "currency": "INR",
         "receipt": f"order_{user.id[:8]}",
     })
@@ -122,7 +122,7 @@ def place_order(o: OrderIn, user: dict = Depends(get_current_user)):
         "order": _order_with_items(order),
         "razorpay": {
             "key_id": RAZORPAY_KEY_ID,
-            "amount": int(total * 100),
+            "amount": _paise(total),
             "razorpay_order_id": rzp_order_id,
         },
     }
@@ -164,7 +164,7 @@ def checkout_cart(address_id: str, user: dict = Depends(get_current_user)):
         })
 
     rzp = razorpay_client.order.create({
-        "amount": int(total * 100),
+        "amount": _paise(total),
         "currency": "INR",
         "receipt": f"cart_{user.id[:8]}",
     })
@@ -196,7 +196,10 @@ def checkout_cart(address_id: str, user: dict = Depends(get_current_user)):
         "order": _order_with_items(order),
         "razorpay": {
             "key_id": RAZORPAY_KEY_ID,
-            "amount": int(total * 100),
+            "amount": _paise(total),
             "razorpay_order_id": rzp_order_id,
         },
     }
+
+def _paise(amount: float) -> int:
+    return int(round(amount * 100))

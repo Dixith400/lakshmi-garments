@@ -48,8 +48,9 @@ def create_product(p: ProductIn, admin: dict = Depends(require_admin)):
 
 @router.patch("/api/products/{product_id}")
 def update_product(product_id: str, p: ProductPatch, admin: dict = Depends(require_admin)):
-    """Admin can change price and stock (and anything else) after creation."""
-    updates = {k: v for k, v in p.model_dump().items() if v is not None}
+    updates = p.model_dump(exclude_unset=True)   # keeps explicit nulls, drops fields not sent
+    if not updates:
+        raise HTTPException(400, "Nothing to update.")
     rows = supabase.table("products").update(updates).eq("id", product_id).execute().data
     if not rows:
         raise HTTPException(404, "Product not found.")
