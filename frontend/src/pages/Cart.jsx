@@ -65,7 +65,7 @@ export default function Cart() {
                   }}
                 >
                   {img && (
-                    <img src={img} alt="" className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                    <img src={img} alt="" className="w-16 aspect-[3/4] object-cover rounded-xl shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-ink truncate">{i.product.name}</p>

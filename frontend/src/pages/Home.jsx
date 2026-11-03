@@ -76,7 +76,7 @@ export default function Home() {
                   <img
                     src={productImages[p.id]?.[0]?.image_url || p.image_url}
                     alt={p.name}
-                    className="w-full h-40 object-cover"
+                    className="w-full aspect-[3/4] object-cover"
                   />
                 )}
                 <div className="p-3">
@@ -144,7 +144,7 @@ export default function Home() {
                 <img
                   src={productImages[p.id]?.[0]?.image_url || p.image_url}
                   alt={p.name}
-                  className="w-full h-36 object-cover"
+                  className="w-full aspect-[3/4] object-cover"
                 />
               )}
               <div className="p-3">

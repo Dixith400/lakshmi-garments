@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { Minus, Plus, MapPin, ShieldCheck, Heart, ShoppingCart } from 'lucide-react';
+import { Minus, Plus, MapPin, ShieldCheck, Heart, ShoppingCart, Info } from 'lucide-react';
 import { useCart } from '../lib/cart.jsx';
 import { useWishlist } from '../lib/wishlist.jsx';
 
@@ -109,7 +109,7 @@ export default function ProductDetail() {
       <div className="grid md:grid-cols-2 gap-6">
         {/* Gallery */}
         <div>
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden aspect-square">
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden aspect-[3/4]">
             {gallery.length > 0 ? (
               <img src={gallery[activeImage]} alt={product.name} className="w-full h-full object-cover" />
             ) : (
@@ -122,7 +122,7 @@ export default function ProductDetail() {
                 <button
                   key={i}
                   onClick={() => setActiveImage(i)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden shrink-0 ring-2 ${i === activeImage ? 'ring-brand' : 'ring-transparent'}`}
+                  className={`w-16 aspect-[3/4] rounded-lg overflow-hidden shrink-0 ring-2 ${i === activeImage ? 'ring-brand' : 'ring-transparent'}`}
                 >
                   <img src={url} alt="" className="w-full h-full object-cover" />
                 </button>
@@ -218,6 +218,12 @@ export default function ProductDetail() {
 
             <p className="flex items-center gap-1.5 text-sm text-ink/50">
               <ShieldCheck size={15} /> Secure online payment via Razorpay
+            </p>
+
+            {/* NEW */}
+            <p className="flex items-start gap-1.5 text-sm text-ink/60 bg-white rounded-xl shadow-sm p-3">
+              <Info size={15} className="mt-0.5 shrink-0" />
+              No returns are accepted. Only damaged products are eligible for return.
             </p>
 
             <div className="flex gap-3">

@@ -39,7 +39,7 @@ export default function MyOrders() {
               {(o.items || []).map((it, i) => (
                 <li key={i} className="flex items-center gap-3">
                   {it.image_url && (
-                    <img src={it.image_url} alt={it.product_name} className="w-12 h-12 object-cover rounded-lg shrink-0" />
+                    <img src={it.image_url} alt={it.product_name} className="w-12 aspect-[3/4] object-cover rounded-lg shrink-0" />
                   )}
                   <span className="text-sm text-ink/70">
                     {it.product_name} — {it.size} / {it.color} × {it.quantity} @ ₹{it.unit_price}
