@@ -14,6 +14,9 @@ RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+ALLOWED_ORIGINS = [
+    o.strip().rstrip("/") for o in FRONTEND_URL.split(",") if o.strip()
+] + ["http://localhost:5173"]
 
 # Comma-separated admin UUIDs from .env → e.g. ADMIN_USER_IDS=uuid1,uuid2
 ADMIN_USER_IDS = {

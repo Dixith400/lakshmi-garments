@@ -1,13 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.config import FRONTEND_URL
 from app.routers import auth, products, orders, payments, settings, categories, images, addresses, cart, wishlist
+from app.config import ALLOWED_ORIGINS
 
 app = FastAPI(title="Lakshmi Garments & Jewelry API")
 
+
+
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, ],     # your frontend origin
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
