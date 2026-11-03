@@ -44,7 +44,7 @@ export default function Wishlist() {
                 </button>
                 <Link to={`/product/${i.product.id}`}>
                   {img && (
-                    <img src={img} alt={i.product.name} className="w-full h-36 object-cover" />
+                    <img src={img} alt={i.product.name} className="w-full aspect-[3/4] object-cover" />
                   )}
                   <div className="p-3">
                     <h3 className="font-medium text-ink text-sm truncate">{i.product.name}</h3>
